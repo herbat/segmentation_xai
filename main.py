@@ -23,42 +23,66 @@ colors_mnist = np.asarray([[250, 227, 227],
                            [100, 75, 80],
                            [58, 8, 66]])
 
-generator_biased = gen_texture_mnist(biased_config)
-generator_unbiased = gen_texture_mnist(unbiased_config)
+generator_biased = gen_texture_mnist(biased_config, 'test')
+generator_unbiased = gen_texture_mnist(unbiased_config, 'test')
 
 # model.train(generator, gen_texture_mnist(config, 'test'))
 
 # print(model.evaluate(generator_biased))
 # print(model.evaluate(generator_unbiased))
 
-x, y, m = next(generator_biased)
-x_in = np.repeat(x, 3, axis=3)[12:13]
-biased_tile = m[12]['biased_tile']
-
-m_out = model(x_in).squeeze()
+# m_out = model(x_in).squeeze()
 
 # plt.imshow(decode_segmap(m_out, colors_mnist))
 # plt.show()
 #
-# plt.imshow(biased_tile)
-# plt.show()
 
-for i in range(10):
+cbls = []
+dists = []
+
+
+for i in range(200):
+
+    if i % 10 != 2 and i % 10 != 1:
+        continue
+
+    x, y, m = next(generator_biased)
+    x_in = np.repeat(x, 3, axis=3)[2:2 + 1]
+    biased_tile = m[2]['biased_tile']
+
+    m_out = model(x_in).squeeze()
+
+    # plt.imshow(decode_segmap(m_out, colors_mnist))
+    # plt.show()
 
     out, losses = GridSaliency.generate_saliency_map(image=x_in,
                                                      model=model,
                                                      mask_res=(4, 4),
-                                                     req_class=2,
+                                                     req_class=2 % 10,
                                                      baseline='value',
                                                      batch_size=3,
-                                                     iterations=150)
+                                                     iterations=200,
+                                                     lm=0.02)
 
-    print(f'CBL: {cbl(out, biased_tile)}, Dist: {smap_dist(out, biased_tile)}')
+    cblt = cbl(out, biased_tile)
+    distt = smap_dist(out, biased_tile)
+    print(f'CBL: {cblt}, Dist: {distt}')
+    cbls.append(cblt)
+    dists.append(distt)
 
-    plt.imshow(out.squeeze())
-    plt.show()
-    #
-    # plt.plot(losses)
+    # plt.imshow(out.squeeze())
     # plt.show()
 
+    plt.plot(losses)
+    plt.show()
 
+cbls = np.asarray(cbls)
+cbls = (cbls - cbls.min()) / (cbls.max() - cbls.min())
+
+
+dists = np.asarray(dists)
+dists = (dists - dists.min()) / (dists.max() - dists.min())
+
+plt.plot(cbls)
+plt.plot(dists)
+plt.show()

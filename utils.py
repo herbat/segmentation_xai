@@ -18,12 +18,14 @@ def decode_segmap(a: np.ndarray, color_array: np.ndarray) -> np.ndarray:
 
 
 def smap_dist(smap: np.ndarray, biased_mask: np.ndarray):
-    bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)
+    bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)/255
     return np.sum((smap-bm)**2)
 
 
 def cbl(smap: np.ndarray, biased_mask: np.ndarray):
-    bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)
+    bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)/255
+    if bm.max() == 0 or smap.max() == 0:
+        return 0
     smap_rounded = np.ceil(smap)
     correct_pixels = np.sum(smap[smap_rounded == bm])
     all_pixels = np.sum(smap)

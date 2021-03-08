@@ -24,9 +24,8 @@ class TestLoss(unittest.TestCase):
         expected_out = 1 + 2/3
         actual_out = loss_fn(lm=1,
                              smap=self.smap,
-                             im=self.im,
-                             model=self.model,
-                             orig_pred=self.orig_out,
+                             cur_out=self.model(self.im),
+                             orig_out=self.orig_out,
                              class_r=self.class_r)
 
         self.assertEqual(actual_out, expected_out, f"Actual out is wrong: {actual_out}")
