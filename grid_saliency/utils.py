@@ -53,10 +53,7 @@ def loss_fn(lm: float,
     req_mask = np.round(zerod_out[:, :, class_r]).astype(int)
     diff_area = (zerod_out[:, :, class_r] - cur_out[:, :, class_r]) * req_mask
     diff_area[diff_area < 0] = 0
-    l = lm * np.sum(smap) + (np.sum(diff_area) / req_area_size)
-    if l < 0:
-        print(f'oopsie daisy: {np.sum(smap)}, {(np.sum(diff_area) / req_area_size)}')
-    return l
+    return lm * np.sum(smap) + (np.sum(diff_area) / req_area_size)
 
 
 def choose_random_n(a: np.ndarray, n: int) -> np.ndarray:

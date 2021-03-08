@@ -1,5 +1,6 @@
-
+import cv2
 import numpy as np
+from matplotlib import pyplot as plt
 from grid_saliency.utils import loss_fn, perturb_im, choose_random_n
 
 
@@ -14,10 +15,11 @@ class GridSaliency:
                               lm: float = 0.02,
                               batch_size: int = 5,
                               momentum: float = 0.5,
-                              learning_rate: float = 0.2):
+                              learning_rate: float = 0.2,
+                              true_mask: np.ndarray = None):
 
         orig_out = model(image)[0]
-        baseline_values = {0, 1/4, 1/2, 3/4, 1}
+        baseline_values = [0, 1/4, 1/2, 3/4, 1]
         losses = []
         for bv in baseline_values:
             smap_tmp = np.zeros(mask_res)
@@ -32,22 +34,23 @@ class GridSaliency:
                                   cur_out=out,
                                   orig_out=orig_out,
                                   class_r=req_class))
-        bl_value = np.argmin(losses)
+
+        bl_value = baseline_values[int(np.argmin(losses))]
 
         # optimize
-
         smap = np.ones(mask_res) * 0.5
         grad_map = np.ones(mask_res) * 0.1
         grad_map_prev = np.ones(mask_res) * 0.1
         i_losses = []
         prev_loss = np.min(losses)
+        # if prev_loss < 0.03:
+        #     return np.zeros(mask_res), []
         i_losses.append(prev_loss)
         for i in range(iterations):
 
             # choose a random set of pixels in the saliency space
             choice = choose_random_n(smap, batch_size)
-            smap[choice] += (grad_map[choice]*(1-momentum) +
-                             grad_map_prev[choice]*momentum) * learning_rate
+            smap[choice] += grad_map[choice] * learning_rate
 
             smap[smap <= 0.2] = 0
 
@@ -68,7 +71,7 @@ class GridSaliency:
                            class_r=req_class)
             i_losses.append(loss)
             # update gradients
-            grad_map[choice] += (prev_loss-loss)
+            grad_map[choice] += (prev_loss-loss)*(1-momentum) + grad_map_prev[choice]*momentum
             grad_map_prev = grad_map
 
         if i_losses[0] < i_losses[-1]:
