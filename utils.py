@@ -24,7 +24,9 @@ def smap_dist(smap: np.ndarray, biased_mask: np.ndarray):
 
 def cbl(smap: np.ndarray, biased_mask: np.ndarray):
     bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)/255
-    if bm.max() == 0 or smap.max() == 0:
+    if bm.max() == 0 and smap.max() == 0:
+        return 1
+    elif smap.max() == 0:
         return 0
     smap_rounded = np.ceil(smap)
     correct_pixels = np.sum(smap[smap_rounded == bm])
