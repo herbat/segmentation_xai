@@ -1,6 +1,8 @@
 import numpy as np
-import segmentation_models as sm
+import tensorflow as tf
 from tensorflow import keras
+
+import segmentation_models as sm
 
 
 def gen_spec(gen) -> tuple:
@@ -9,12 +11,19 @@ def gen_spec(gen) -> tuple:
         yield np.repeat(x, 3, axis=3), y
 
 
-class UnetModel:
+class UnetModel(keras.Model):
+
+    def get_config(self):
+        pass
+
+    def call(self, inputs, training=None, mask=None):
+        pass
 
     def __init__(self, classes: int,
                  input_shape: tuple,
                  backbone: str = 'vgg16',
                  load: bool = False):
+        super().__init__()
 
         if load:
             self.model = keras.models.load_model('unetmodel', compile=False)
@@ -25,8 +34,12 @@ class UnetModel:
                                  input_shape=input_shape)
 
     def __call__(self, x: np.ndarray, *args, **kwargs):
+        return self.model(x)
+
+    def predict_gen(self, x: np.ndarray,):
         if x.ndim < 4:
             x = np.expand_dims(x, axis=0)
+
         return self.model.predict(x)
 
     def train(self, train_gen, test_gen):
@@ -43,6 +56,17 @@ class UnetModel:
             validation_data=gen_spec(test_gen),
         )
 
-    def evaluate(self, gen):
+    def evaluate_c(self, gen):
         self.model.compile(loss=sm.losses.bce_jaccard_loss)
         return self.model.evaluate(gen_spec(gen), steps=10)
+
+
+class TfUnetModel(tf.Module):
+
+    def __init__(self, size, ):
+        super().__init__()
+        self.size = size
+        self.model = self._build_model()
+
+    def _build_model(self,):
+        return self.size
