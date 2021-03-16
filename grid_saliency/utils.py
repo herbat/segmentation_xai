@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
+import tensorflow as tf
 from utils import zero_nonmax
+from tensorflow.keras import Model
 
 
 def generate_baseline_image(image: np.ndarray, baseline: tuple) -> np.ndarray:
@@ -61,5 +63,5 @@ def choose_random_n(a: np.ndarray, n: int) -> np.ndarray:
     flat = sample.flatten()
     flat.sort()
     thr = flat[n]
-    return sample <= thr
+    return sample < thr
 

@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
-from scipy.optimize import fmin
 from matplotlib import pyplot as plt
+
+from grid_saliency.optimizers import TfOptimizer
 from grid_saliency.utils import loss_fn, perturb_im, choose_random_n
 
 
@@ -18,7 +19,7 @@ class GridSaliency:
                               momentum: float = 0.5,
                               learning_rate: float = 0.2):
 
-        orig_out = model(image)[0]
+        orig_out = model.predict_gen(image)[0]
         baseline_values = [0, 1/4, 1/2, 3/4, 1]
         losses = []
         for bv in baseline_values:
@@ -28,7 +29,7 @@ class GridSaliency:
                               mask_class=req_class,
                               orig_out=orig_out,
                               baseline=(baseline, bv))
-            out = model(im_p)[0]
+            out = model.predict_gen(im_p)[0]
             losses.append(loss_fn(lm=lm,
                                   smap=smap_tmp,
                                   cur_out=out,
@@ -51,6 +52,17 @@ class GridSaliency:
         smap_min = np.zeros(mask_res)
         loss_min = prev_loss
 
+        tfopt = TfOptimizer(orig_im=image,
+                            model=model,
+                            baseline=(baseline, bl_value),
+                            class_r=req_class,
+                            lm=lm,
+                            orig_out=orig_out)
+
+        res = tfopt.optimize(smap=smap)
+
+        print(res)
+
         for i in range(iterations):
 
             # choose a random set of pixels in the saliency space
@@ -68,7 +80,7 @@ class GridSaliency:
                               baseline=(baseline, bl_value))
 
             # get the current output for the perturbed image
-            cur_out = model(p_im)[0]
+            cur_out = model.predict_gen(p_im)[0]
 
             loss = loss_fn(lm=lm,
                            smap=smap,
@@ -101,43 +113,5 @@ class GridSaliency:
         else:
             smap = smap_min
 
-        return smap, i_losses
-
-
-class FminOptimizer:
-
-    def __init__(self, image: np.ndarray,
-                 model,
-                 req_class: int,
-                 baseline: str,
-                 bl_value: float,
-                 orig_out: np.ndarray,
-                 lm: float,
-                 smap_size: tuple):
-
-        self.image = image
-        self.model = model
-        self.req_class = req_class
-        self.baseline = baseline
-        self.bl_value = bl_value
-        self.orig_out = orig_out
-        self.lm = lm
-        self.smap_size = smap_size
-        self.losses = []
-
-    def optimize(self, smap: np.ndarray, iters: int):
-        return fmin(self.loss, smap.flatten(), maxiter=iters).reshape(self.smap_size)
-
-    def loss(self, smap):
-        p_im = perturb_im(im=self.image,
-                          smap=smap.reshape(self.smap_size),
-                          mask_class=self.req_class,
-                          orig_out=self.orig_out,
-                          baseline=(self.baseline, self.bl_value))
-
-        # get the current output for the perturbed image
-        cur_out = self.model(p_im)[0]
-        loss = loss_fn(lm=self.lm, smap=smap, cur_out=cur_out, orig_out=self.orig_out, class_r=self.req_class)
-        self.losses.append(loss)
-        return loss
+        return smap, tfopt.losses
 
