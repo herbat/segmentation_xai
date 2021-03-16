@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from model import UnetModel
+from models.unet_sm_model import UnetModel
+
 from utils import decode_segmap, cbl, smap_dist
 from grid_saliency.grid_saliency_explanation import GridSaliency
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
@@ -41,7 +42,7 @@ x, y, m = next(generator_biased)
 x_in = np.repeat(x, 3, axis=3)[12:12 + 1]
 biased_tile = m[12]['biased_tile']
 
-m_out = model(x_in).squeeze()
+m_out = model.predict_gen(x_in).squeeze()
 
 cbls = []
 dists = []

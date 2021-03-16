@@ -1,5 +1,4 @@
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 
 import segmentation_models as sm
@@ -60,13 +59,3 @@ class UnetModel(keras.Model):
         self.model.compile(loss=sm.losses.bce_jaccard_loss)
         return self.model.evaluate(gen_spec(gen), steps=10)
 
-
-class TfUnetModel(tf.Module):
-
-    def __init__(self, size, ):
-        super().__init__()
-        self.size = size
-        self.model = self._build_model()
-
-    def _build_model(self,):
-        return self.size
