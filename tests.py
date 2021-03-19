@@ -3,6 +3,7 @@ import numpy as np
 
 from matplotlib import pyplot as plt
 
+from utils import MetricRecorder, cbl, smap_dist
 from bias_dataset.configs import unbiased_config
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from grid_saliency.grid_saliency_explanation import loss_fn, perturb_im
@@ -49,3 +50,17 @@ class TestPerturbation(unittest.TestCase):
         plt.imshow(actual_out)
         plt.show()
 
+
+class TestMetricRecorder(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.metricrecorder = MetricRecorder([cbl, smap_dist])
+
+    def test_recording(self):
+        self.metricrecorder(np.random.randn(4, 4), np.random.randn(4, 4))
+
+        self.metricrecorder(np.random.randn(4, 4), np.random.randn(4, 4))
+
+        self.metricrecorder(np.random.randn(4, 4), np.random.randn(4, 4))
+
+        self.metricrecorder.plot()
