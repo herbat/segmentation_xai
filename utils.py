@@ -1,5 +1,25 @@
-import numpy as np
+from typing import List
+
 import cv2
+import numpy as np
+from matplotlib import pyplot as plt
+
+
+class MetricRecorder:
+
+    def __init__(self, metrics: List[callable]):
+        self.metrics = metrics
+        self.record = []
+
+    def __call__(self, smap: np.ndarray, mask: np.ndarray) -> None:
+        metric_values = []
+        for metric in self.metrics:
+            metric_values.append(metric(smap, mask))
+        self.record.append(metric_values)
+
+    def plot(self):
+        plt.plot(self.record)
+        plt.show()
 
 
 def zero_nonmax(a: np.ndarray) -> np.ndarray:
