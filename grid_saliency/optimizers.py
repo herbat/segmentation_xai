@@ -1,21 +1,34 @@
 import abc
 from typing import Tuple
 
-import cv2
 import numpy as np
 import tensorflow as tf
 from scipy.optimize import fmin
 
 from utils import zero_nonmax
-from grid_saliency.utils import loss_fn, perturb_im, choose_random_n, create_baseline
+from grid_saliency.utils import loss_fn, perturb_im, choose_random_n
 
 
 class Optimizer:
 
+    def __init__(self,
+                 image: np.ndarray,
+                 model,
+                 req_class: int,
+                 bl_image: np.ndarray,
+                 orig_out: np.ndarray,
+                 lm: float):
+        self.image = image
+        self.model = model
+        self.req_class = req_class
+        self.bl_image = bl_image
+        self.orig_out = orig_out
+        self.lm = lm
+
     @abc.abstractmethod
-    def optimize(self, smap: np.ndarray, **params) -> Tuple[np.ndarray, float]:
+    def optimize(self, _smap: np.ndarray, **params) -> Tuple[np.ndarray, float]:
         """
-        :param smap: smap to optimize
+        :param _smap: smap to optimize
         :param params:
         :return: final smap and final loss
         """
@@ -26,29 +39,23 @@ class FminOptimizer(Optimizer):
     def __init__(self, image: np.ndarray,
                  model,
                  req_class: int,
-                 baseline: tuple,
+                 bl_image: np.ndarray,
                  orig_out: np.ndarray,
-                 lm: float,
-                 smap_size: tuple):
+                 lm: float):
 
-        self.image = image
-        self.model = model
-        self.req_class = req_class
-        self.baseline = baseline
-        self.orig_out = orig_out
-        self.lm = lm
-        self.smap_size = smap_size
+        super().__init__(image=image, model=model, bl_image=bl_image, req_class=req_class, orig_out=orig_out, lm=lm)
         self.losses = []
-        self.bl_image = create_baseline(image=image, mask_class=req_class, orig_out=orig_out, baseline=baseline)
+        self.lm = None
 
-    def optimize(self, _smap: np.ndarray, iters: int = 1000) -> Tuple[np.ndarray, float]:
+    def optimize(self, _smap: np.ndarray, iters: int = 1000, lm: float = 0.02) -> Tuple[np.ndarray, float]:
         smap = _smap
-        return fmin(self.loss, smap.flatten(), maxiter=iters).reshape(self.smap_size), self.losses[-1]
+        self.lm = lm
+        return fmin(self.loss, smap.flatten(), maxiter=iters).reshape(smap.shape), self.losses[-1]
 
     def loss(self, smap):
 
         p_im = perturb_im(image=self.image,
-                          smap=smap.reshape(self.smap_size),
+                          smap=smap.reshape(smap.shape),
                           bl_image=self.bl_image)
 
         # get the current output for the perturbed image
@@ -60,29 +67,30 @@ class FminOptimizer(Optimizer):
 
 class TfOptimizer(Optimizer):
 
-    def __init__(self, orig_im, model, bl_image, class_r, lm, orig_out):
-        self.orig_im = orig_im
-        self.orig_out = orig_out
-        self.model = model
-        self.class_r = class_r
-        self.lm = lm
+    def __init__(self, image: np.ndarray,
+                 model,
+                 req_class: int,
+                 bl_image: np.ndarray,
+                 orig_out: np.ndarray,
+                 lm: float):
+
+        super().__init__(image=image, model=model, bl_image=bl_image, req_class=req_class, orig_out=orig_out, lm=lm)
         self.losses = []
-        self.loss2 = []
         self.bl_image = bl_image
 
     def loss(self, smap: np.ndarray) -> float:
 
         smap_sum = tf.reduce_sum(smap)
-        pert_im = perturb_im(image=self.orig_im,
+        pert_im = perturb_im(image=self.image,
                              smap=smap,
                              bl_image=self.bl_image)
 
         zerod_out = zero_nonmax(self.orig_out)
         req_area_size = np.count_nonzero(np.round(zerod_out))
         mask = np.zeros_like(self.orig_out)
-        mask[:, :, self.class_r] = np.round(zerod_out[:, :, self.class_r]).astype(int)
+        mask[:, :, self.req_class] = np.round(zerod_out[:, :, self.req_class]).astype(int)
 
-        confidence_diff = np.maximum(self.model.predict_gen(self.orig_im) - self.model.predict_gen(pert_im), 0) * mask
+        confidence_diff = np.maximum(self.model.predict_gen(self.image) - self.model.predict_gen(pert_im), 0) * mask
 
         return self.lm * smap_sum + np.sum(confidence_diff) / req_area_size
 
@@ -98,10 +106,9 @@ class TfOptimizer(Optimizer):
         zerod_out = zero_nonmax(self.orig_out)
         req_area_size = np.count_nonzero(np.round(zerod_out))
         mask_np = np.zeros_like(self.orig_out)
-        mask_np[:, :, self.class_r] = np.round(zerod_out[:, :, self.class_r]).astype(int)
+        mask_np[:, :, self.req_class] = np.round(zerod_out[:, :, self.req_class]).astype(int)
         mask = tf.constant(mask_np)
         diff = tf.reduce_sum(tf.keras.activations.relu(self.model(im) - self.model(pert_im)) * mask)
-        self.loss2.append(diff / req_area_size)
         return diff / req_area_size
 
     def optimize(self, _smap: np.ndarray,
@@ -140,7 +147,7 @@ class TfOptimizer(Optimizer):
         return smap_min, loss_min
 
     def get_grad(self, smap: np.ndarray) -> np.ndarray:
-        orig_im_tf = tf.cast(tf.constant(self.orig_im), 'float32')
+        orig_im_tf = tf.cast(tf.constant(self.image), 'float32')
         bl_im_tf = tf.cast(tf.constant(self.bl_image), 'float32')
         smap = tf.Variable(np.expand_dims(np.repeat(smap[:, :, np.newaxis], 3, axis=2), axis=0))
 
@@ -157,19 +164,16 @@ class TfOptimizer(Optimizer):
 
 class MySGD(Optimizer):
 
-    def __init__(self, image: np.ndarray,
-                 model, req_class: int,
+    def __init__(self,
+                 image: np.ndarray,
+                 model,
+                 req_class: int,
                  bl_image: np.ndarray,
-                 orig_out: np.ndarray):
+                 orig_out: np.ndarray,
+                 lm: float):
 
-        self.image = image
-        self.model = model
-        self.req_class = req_class
+        super().__init__(image=image, model=model, req_class=req_class, bl_image=bl_image, orig_out=orig_out, lm=lm)
         self.losses = []
-
-        self.bl_image = bl_image
-        self.orig_out = orig_out
-        pass
 
     def optimize(self, _smap: np.ndarray,
                  momentum: float = 0.5,

@@ -1,15 +1,19 @@
+from typing import Type
+
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-from grid_saliency.optimizers import TfOptimizer, MySGD
+from grid_saliency.optimizers import Optimizer
 from grid_saliency.utils import loss_fn, perturb_im, create_baseline
 
 
 class GridSaliency:
 
     @staticmethod
-    def generate_saliency_map(image: np.ndarray, model,
+    def generate_saliency_map(image: np.ndarray,
+                              model,
+                              optimizer: Type[Optimizer],
                               mask_res: tuple,
                               req_class: int,
                               baseline: str = None,
@@ -42,27 +46,17 @@ class GridSaliency:
 
         smap = np.ones(mask_res) * 0.5
 
-        tfopt = TfOptimizer(orig_im=image,
-                            model=model,
-                            bl_image=bl_image,
-                            class_r=req_class,
-                            lm=lm,
-                            orig_out=orig_out)
+        opt = optimizer(image=image,
+                        model=model,
+                        req_class=req_class,
+                        bl_image=bl_image,
+                        orig_out=orig_out,
+                        lm=lm)
 
-        res_tf = tfopt.optimize(_smap=smap)
-
-        mysgd = MySGD(image=image,
-                      model=model,
-                      req_class=req_class,
-                      bl_image=bl_image,
-                      orig_out=orig_out)
-
-        res_my = mysgd.optimize(_smap=smap,
-                                momentum=momentum,
-                                batch_size=batch_size,
-                                lm=lm,
-                                learning_rate=learning_rate)
-
-        return res_tf, mysgd.losses
+        return opt.optimize(_smap=smap,
+                            iterations=iterations,
+                            momentum=momentum,
+                            batch_size=batch_size,
+                            learning_rate=learning_rate)
 
 
