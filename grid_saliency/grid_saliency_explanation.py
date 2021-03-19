@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-from grid_saliency.optimizers import TfOptimizer
-from grid_saliency.utils import loss_fn, perturb_im, choose_random_n
+from grid_saliency.optimizers import TfOptimizer, MySGD
+from grid_saliency.utils import loss_fn, perturb_im, create_baseline
 
 
 class GridSaliency:
@@ -22,13 +22,14 @@ class GridSaliency:
         orig_out = model.predict_gen(image)[0]
         baseline_values = [0, 1/4, 1/2, 3/4, 1]
         losses = []
+
         for bv in baseline_values:
             smap_tmp = np.zeros(mask_res)
-            im_p = perturb_im(im=image,
+            bl_image = create_baseline(image=image, mask_class=req_class, orig_out=orig_out, baseline=(baseline, bv))
+            im_p = perturb_im(image=image,
                               smap=smap_tmp,
-                              mask_class=req_class,
-                              orig_out=orig_out,
-                              baseline=(baseline, bv))
+                              bl_image=bl_image)
+
             out = model.predict_gen(im_p)[0]
             losses.append(loss_fn(lm=lm,
                                   smap=smap_tmp,
@@ -37,81 +38,31 @@ class GridSaliency:
                                   class_r=req_class))
 
         bl_value = baseline_values[int(np.argmin(losses))]
+        bl_image = create_baseline(image=image, mask_class=req_class, orig_out=orig_out, baseline=(baseline, bl_value))
 
-        # optimize
-        eps = 0.1
         smap = np.ones(mask_res) * 0.5
-        grad_map = np.ones(mask_res) * 0.1
-        grad_map_prev = np.ones(mask_res) * 0.1
-        i_losses = []
-        prev_loss = np.min(losses)
-        # if prev_loss < 0.03:
-        #     return np.zeros(mask_res), []
-        i_losses.append(prev_loss)
-
-        smap_min = np.zeros(mask_res)
-        loss_min = prev_loss
 
         tfopt = TfOptimizer(orig_im=image,
                             model=model,
-                            baseline=(baseline, bl_value),
+                            bl_image=bl_image,
                             class_r=req_class,
                             lm=lm,
                             orig_out=orig_out)
 
-        res = tfopt.optimize(smap=smap)
+        res_tf = tfopt.optimize(_smap=smap)
 
-        print(res)
+        mysgd = MySGD(image=image,
+                      model=model,
+                      req_class=req_class,
+                      bl_image=bl_image,
+                      orig_out=orig_out)
 
-        for i in range(iterations):
+        res_my = mysgd.optimize(_smap=smap,
+                                momentum=momentum,
+                                batch_size=batch_size,
+                                lm=lm,
+                                learning_rate=learning_rate)
 
-            # choose a random set of pixels in the saliency space
-            choice = choose_random_n(smap, batch_size)
-            smap[choice] += grad_map[choice] * learning_rate
+        return res_tf, mysgd.losses
 
-            smap[smap <= 0] = 0
-            smap[smap > 1] = 1
-
-            # get the perturbed image
-            p_im = perturb_im(im=image,
-                              smap=smap,
-                              mask_class=req_class,
-                              orig_out=orig_out,
-                              baseline=(baseline, bl_value))
-
-            # get the current output for the perturbed image
-            cur_out = model.predict_gen(p_im)[0]
-
-            loss = loss_fn(lm=lm,
-                           smap=smap,
-                           cur_out=cur_out,
-                           orig_out=orig_out,
-                           class_r=req_class)
-
-            # autodiff
-            smap_e = np.copy(smap)
-            smap_e[choice] += eps
-            loss_e = loss_fn(lm=lm,
-                             smap=smap_e,
-                             cur_out=cur_out,
-                             orig_out=orig_out,
-                             class_r=req_class)
-
-            cur_grad = - (loss_e - loss) / eps
-
-            if loss_min > loss:
-                loss_min = loss
-                smap_min = np.copy(smap)
-
-            i_losses.append(loss)
-            # update gradients
-            grad_map[choice] += cur_grad * (1-momentum) + grad_map_prev[choice] * momentum
-            grad_map_prev = grad_map
-
-        if i_losses[0] < loss_min:
-            smap = np.zeros(mask_res)
-        else:
-            smap = smap_min
-
-        return smap, tfopt.losses
 

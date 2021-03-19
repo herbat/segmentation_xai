@@ -39,8 +39,8 @@ generator_unbiased = gen_texture_mnist(unbiased_config, 'test')
 #
 
 x, y, m = next(generator_biased)
-x_in = np.repeat(x, 3, axis=3)[12:12 + 1]
-biased_tile = m[12]['biased_tile']
+x_in = np.repeat(x, 3, axis=3)[2:2 + 1]
+biased_tile = m[2]['biased_tile']
 
 m_out = model.predict_gen(x_in).squeeze()
 

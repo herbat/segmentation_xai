@@ -1,19 +1,32 @@
+import abc
+from typing import Tuple
+
+import cv2
 import numpy as np
 import tensorflow as tf
 from scipy.optimize import fmin
-import segmentation_models as sm
 
 from utils import zero_nonmax
-from grid_saliency.utils import loss_fn, perturb_im, choose_random_n
+from grid_saliency.utils import loss_fn, perturb_im, choose_random_n, create_baseline
 
 
-class FminOptimizer:
+class Optimizer:
+
+    @abc.abstractmethod
+    def optimize(self, smap: np.ndarray, **params) -> Tuple[np.ndarray, float]:
+        """
+        :param smap: smap to optimize
+        :param params:
+        :return: final smap and final loss
+        """
+
+
+class FminOptimizer(Optimizer):
 
     def __init__(self, image: np.ndarray,
                  model,
                  req_class: int,
-                 baseline: str,
-                 bl_value: float,
+                 baseline: tuple,
                  orig_out: np.ndarray,
                  lm: float,
                  smap_size: tuple):
@@ -22,21 +35,21 @@ class FminOptimizer:
         self.model = model
         self.req_class = req_class
         self.baseline = baseline
-        self.bl_value = bl_value
         self.orig_out = orig_out
         self.lm = lm
         self.smap_size = smap_size
         self.losses = []
+        self.bl_image = create_baseline(image=image, mask_class=req_class, orig_out=orig_out, baseline=baseline)
 
-    def optimize(self, smap: np.ndarray, iters: int):
-        return fmin(self.loss, smap.flatten(), maxiter=iters).reshape(self.smap_size)
+    def optimize(self, _smap: np.ndarray, iters: int = 1000) -> Tuple[np.ndarray, float]:
+        smap = _smap
+        return fmin(self.loss, smap.flatten(), maxiter=iters).reshape(self.smap_size), self.losses[-1]
 
     def loss(self, smap):
-        p_im = perturb_im(im=self.image,
+
+        p_im = perturb_im(image=self.image,
                           smap=smap.reshape(self.smap_size),
-                          mask_class=self.req_class,
-                          orig_out=self.orig_out,
-                          baseline=(self.baseline, self.bl_value))
+                          bl_image=self.bl_image)
 
         # get the current output for the perturbed image
         cur_out = self.model(p_im)[0]
@@ -45,65 +58,138 @@ class FminOptimizer:
         return loss
 
 
-class TfOptimizer:
+class TfOptimizer(Optimizer):
 
-    def __init__(self, orig_im, model, baseline, class_r, lm, orig_out):
+    def __init__(self, orig_im, model, bl_image, class_r, lm, orig_out):
         self.orig_im = orig_im
         self.orig_out = orig_out
         self.model = model
-        self.baseline = baseline
         self.class_r = class_r
         self.lm = lm
         self.losses = []
+        self.loss2 = []
+        self.bl_image = bl_image
 
-    def loss(self, smap: tf.Variable) -> float:
+    def loss(self, smap: np.ndarray) -> float:
 
         smap_sum = tf.reduce_sum(smap)
-        pert_im = perturb_im(im=self.orig_im,
-                             smap=smap.value().numpy(),
-                             mask_class=self.class_r,
-                             orig_out=self.orig_out,
-                             baseline=self.baseline)
+        pert_im = perturb_im(image=self.orig_im,
+                             smap=smap,
+                             bl_image=self.bl_image)
 
         zerod_out = zero_nonmax(self.orig_out)
         req_area_size = np.count_nonzero(np.round(zerod_out))
-        mask_np = np.zeros_like(self.orig_out)
-        mask_np[:, :, self.class_r] = np.round(zerod_out[:, :, self.class_r]).astype(int)
-        mask = tf.cast(tf.constant(mask_np), 'float64')
+        mask = np.zeros_like(self.orig_out)
+        mask[:, :, self.class_r] = np.round(zerod_out[:, :, self.class_r]).astype(int)
 
-        confidence_diff = tf.cast(tf.keras.activations.relu(
-            self.model(self.orig_im) - self.model(pert_im)), 'float64') * mask
+        confidence_diff = np.maximum(self.model.predict_gen(self.orig_im) - self.model.predict_gen(pert_im), 0) * mask
 
-        res = self.lm * smap_sum + tf.reduce_sum(confidence_diff) / req_area_size
-        self.losses.append(res)
+        return self.lm * smap_sum + np.sum(confidence_diff) / req_area_size
 
-        return res
+    @staticmethod
+    def perturb(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
 
-    def confidence_diff(self, pert_im: tf.Variable, im: tf.constant):
+        smap_resized = tf.keras.layers.UpSampling2D(size=(16, 16), interpolation='bilinear')(smap)
+        smap_eroded = -tf.nn.max_pool2d(-smap_resized, ksize=(3, 3), strides=1, padding='SAME')
+        result = image * smap_eroded + bl_image * (1 - smap_eroded)
+        return result
+
+    def confidence_diff(self, pert_im: tf.Variable, im: tf.constant) -> float:
         zerod_out = zero_nonmax(self.orig_out)
         req_area_size = np.count_nonzero(np.round(zerod_out))
         mask_np = np.zeros_like(self.orig_out)
         mask_np[:, :, self.class_r] = np.round(zerod_out[:, :, self.class_r]).astype(int)
         mask = tf.constant(mask_np)
-        diff = tf.reduce_sum(tf.keras.activations.relu(self.model(im) - self.model(pert_im))) * mask
+        diff = tf.reduce_sum(tf.keras.activations.relu(self.model(im) - self.model(pert_im)) * mask)
+        self.loss2.append(diff / req_area_size)
         return diff / req_area_size
 
-    def optimize(self, smap: np.ndarray,
+    def optimize(self, _smap: np.ndarray,
                  iterations: int = 100,
                  batch_size: int = 5,
                  learning_rate: float = 0.2,
-                 momentum: float = 0.5):
+                 momentum: float = 0.5) -> Tuple[np.ndarray, float]:
 
-        smap_var = tf.Variable(smap)
+        smap = np.copy(_smap)
 
-        with tf.GradientTape(persistent=True) as tape:
-            loss = self.loss(smap=smap_var)
-
-        grad_map = tape.gradient(loss, smap_var).numpy()
-        print(grad_map)
+        grad_map = self.get_grad(smap)
         grad_map_prev = np.copy(grad_map)
 
+        smap_min = np.zeros_like(smap)
+        loss_min = 1
+
         for i in range(iterations):
+            # choose a random set of pixels in the saliency space
+            choice = choose_random_n(a=smap, n=batch_size)
+            smap[choice] += grad_map[choice] * learning_rate
+
+            smap[smap <= 0.2] = 0
+            smap[smap > 1] = 1
+
+            cur_grad = - self.get_grad(smap=smap)
+            # update gradients
+            grad_map[choice] += cur_grad[choice] * (1 - momentum) + grad_map_prev[choice] * momentum
+            grad_map_prev = grad_map
+            loss = self.loss(smap=smap)
+            self.losses.append(loss)
+
+            if loss_min > loss:
+                loss_min = loss
+                smap_min = np.copy(smap)
+
+        return smap_min, loss_min
+
+    def get_grad(self, smap: np.ndarray) -> np.ndarray:
+        orig_im_tf = tf.cast(tf.constant(self.orig_im), 'float32')
+        bl_im_tf = tf.cast(tf.constant(self.bl_image), 'float32')
+        smap = tf.Variable(np.expand_dims(np.repeat(smap[:, :, np.newaxis], 3, axis=2), axis=0))
+
+        with tf.GradientTape(persistent=True) as tape:
+            tape.watch(smap)
+            pert_im = self.perturb(smap=smap, image=orig_im_tf, bl_image=bl_im_tf)
+            conf_diff = self.confidence_diff(pert_im=tf.cast(pert_im, 'float32'), im=orig_im_tf)
+
+        grad = tape.gradient(conf_diff, smap).numpy().sum(axis=-1)/3
+        grad += self.lm * 0.1
+
+        return grad.squeeze()
+
+
+class MySGD(Optimizer):
+
+    def __init__(self, image: np.ndarray,
+                 model, req_class: int,
+                 bl_image: np.ndarray,
+                 orig_out: np.ndarray):
+
+        self.image = image
+        self.model = model
+        self.req_class = req_class
+        self.losses = []
+
+        self.bl_image = bl_image
+        self.orig_out = orig_out
+        pass
+
+    def optimize(self, _smap: np.ndarray,
+                 momentum: float = 0.5,
+                 iterations: int = 100,
+                 batch_size: int = 5,
+                 learning_rate: float = 0.2,
+                 lm: float = 0.02) -> Tuple[np.ndarray, float]:
+
+        smap = np.copy(_smap)
+
+        grad_map = np.ones_like(smap) * 0.01
+        grad_map_prev = np.copy(grad_map)
+
+        eps = 0.01
+
+        smap_min = np.zeros_like(smap)
+        loss_min = 1
+
+        for i in range(iterations):
+
             # choose a random set of pixels in the saliency space
             choice = choose_random_n(smap, batch_size)
             smap[choice] += grad_map[choice] * learning_rate
@@ -111,32 +197,39 @@ class TfOptimizer:
             smap[smap <= 0] = 0
             smap[smap > 1] = 1
 
-            smap_var.assign(smap)
-            cur_grad = - tape.gradient(loss, smap_var).numpy()
+            # get the perturbed image
+            p_im = perturb_im(image=self.image,
+                              smap=smap,
+                              bl_image=self.bl_image)
+
+            # get the current output for the perturbed image
+            cur_out = self.model.predict_gen(p_im)[0]
+
+            loss = loss_fn(lm=lm,
+                           smap=smap,
+                           cur_out=cur_out,
+                           orig_out=self.orig_out,
+                           class_r=self.req_class)
+
+            # autodiff
+            smap_e = np.copy(smap)
+            smap_e[choice] += eps
+            loss_e = loss_fn(lm=lm,
+                             smap=smap_e,
+                             cur_out=cur_out,
+                             orig_out=self.orig_out,
+                             class_r=self.req_class)
+
+            cur_grad = - (loss_e - loss) / eps
+
+            if loss_min > loss:
+                loss_min = loss
+                smap_min = np.copy(smap)
+
+            self.losses.append(loss_e)
             # update gradients
-            grad_map[choice] += cur_grad[choice] * (1 - momentum) + grad_map_prev[choice] * momentum
+            grad_map[choice] += cur_grad * (1-momentum) + grad_map_prev[choice] * momentum
             grad_map_prev = grad_map
 
-        return smap_var.numpy()
-
-    def get_grad(self, smap: np.ndarray):
-        pert_im = perturb_im(im=self.orig_im,
-                             smap=smap,
-                             mask_class=self.class_r,
-                             orig_out=self.orig_out,
-                             baseline=self.baseline)
-        orig_im_tf = tf.cast(tf.constant(self.orig_im), 'float32')
-        pert_im_tf = tf.cast(tf.Variable(pert_im), 'float32')
-
-        with tf.GradientTape(persistent=True) as tape:
-            tape.watch(pert_im_tf)
-            conf_diff = self.confidence_diff(pert_im=pert_im_tf, im=orig_im_tf)
-
-        return tape.gradient(conf_diff, pert_im_tf)
-
-
-class MySGD:
-
-    def __init(self):
-        pass
+        return smap_min, loss_min
 

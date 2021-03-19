@@ -22,26 +22,27 @@ def generate_baseline_image(image: np.ndarray, baseline: tuple) -> np.ndarray:
     return types[baseline[0]](image, baseline[1])
 
 
-def perturb_im(im: np.ndarray,
+def create_baseline(image: np.ndarray, mask_class: int, orig_out: np.ndarray, baseline: tuple,) -> np.ndarray:
+    bl_im = generate_baseline_image(image=image, baseline=baseline)
+    zerod_out = zero_nonmax(orig_out)
+    bl_im[0, zerod_out[:, :, mask_class] > 0, :] = image[0, zerod_out[:, :, mask_class] > 0, :]
+    return bl_im
+
+
+def perturb_im(image: np.ndarray,
                smap: np.ndarray,
-               mask_class: int,
-               orig_out: np.ndarray,
-               baseline: tuple = ('value', 0)) -> np.ndarray:
+               bl_image: np.ndarray) -> np.ndarray:
     # scale and erode smap
     smap = (smap * 255).astype(np.uint8)
-    smap_resized = cv2.resize(smap, im.shape[1:-1], interpolation=cv2.INTER_LINEAR)
+    smap_resized = cv2.resize(smap, image.shape[1:-1], interpolation=cv2.INTER_LINEAR)
     kernel = np.ones((3, 3), np.uint8)
     smap_eroded = cv2.erode(smap_resized, kernel=kernel)
     smap = np.repeat(np.expand_dims(smap_eroded, axis=0)[:, :, :, np.newaxis],
                      3, 3).astype(np.float64) / 255
 
-    # generate baseline image
-    b_im = generate_baseline_image(im, baseline)
-
     # apply smap and add the request area(we don't want that area to be affected)
-    result = im * smap + b_im * (1 - smap)
-    zerod_out = zero_nonmax(orig_out)
-    result[0, zerod_out[:, :, mask_class] > 0, :] = im[0, zerod_out[:, :, mask_class] > 0, :]
+    result = image * smap + bl_image * (1 - smap)
+
     return result
 
 
