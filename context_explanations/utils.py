@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import tensorflow as tf
 from utils import zero_nonmax
 
 
@@ -73,3 +74,20 @@ def choose_random_n(a: np.ndarray, n: int) -> np.ndarray:
     thr = flat[n]
     return sample < thr
 
+
+def perturb_im_tf(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
+
+    smap_resized = tf.keras.layers.UpSampling2D(size=(16, 16), interpolation='bilinear')(smap)
+    smap_eroded = -tf.nn.max_pool2d(-smap_resized, ksize=(3, 3), strides=1, padding='SAME')
+    result = image * smap_eroded + bl_image * (1 - smap_eroded)
+    return result
+
+
+def confidence_diff_tf(orig_out: np.ndarray, req_class: int, model, pert_im: tf.Variable, im: tf.constant) -> float:
+    zerod_out = zero_nonmax(orig_out)
+    req_area_size = np.count_nonzero(np.round(zerod_out))
+    mask_np = np.zeros_like(orig_out)
+    mask_np[:, :, req_class] = np.round(zerod_out[:, :, req_class]).astype(int)
+    mask = tf.constant(mask_np)
+    diff = tf.reduce_sum(tf.keras.activations.relu(model(im) - model(pert_im)) * mask)
+    return diff / req_area_size

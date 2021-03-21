@@ -2,8 +2,8 @@ from typing import Type
 
 import numpy as np
 
-from grid_saliency.optimizers import Optimizer
-from grid_saliency.utils import loss_fn, perturb_im, create_baseline
+from context_explanations.optimizers import Optimizer
+from context_explanations.utils import loss_fn, perturb_im, create_baseline
 
 
 class GridSaliency:

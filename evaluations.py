@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 from tensorflow import keras
 
-from grid_saliency.utils import perturb_im, confidence_diff, create_baseline
+from context_explanations.utils import perturb_im, confidence_diff, create_baseline
 
 
 def proportionality(smap: np.ndarray,

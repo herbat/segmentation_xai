@@ -8,8 +8,8 @@ from models.unet_sm_model import UnetModel
 
 from evaluations import proportionality
 from utils import decode_segmap, cbl, smap_dist, MetricRecorder
-from grid_saliency.optimizers import MySGD, TfOptimizer
-from grid_saliency.grid_saliency_explanation import GridSaliency
+from context_explanations.optimizers import MySGD, TfOptimizer
+from context_explanations.grid_saliency_explanation import GridSaliency
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 

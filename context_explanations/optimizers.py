@@ -6,7 +6,7 @@ import tensorflow as tf
 from scipy.optimize import fmin
 
 from utils import zero_nonmax
-from grid_saliency.utils import loss_fn, perturb_im, choose_random_n
+from context_explanations.utils import loss_fn, perturb_im, choose_random_n, perturb_im_tf, confidence_diff_tf
 
 
 class Optimizer:
@@ -83,26 +83,13 @@ class TfOptimizer(Optimizer):
         orig_im_tf = tf.cast(tf.constant(self.image), 'float32')
         bl_im_tf = tf.cast(tf.constant(self.bl_image), 'float32')
 
-        pert_im = self.perturb(smap=smap, image=orig_im_tf, bl_image=bl_im_tf)
-        confidence_diff = self.confidence_diff(pert_im=tf.cast(pert_im, 'float32'), im=orig_im_tf)
+        pert_im = perturb_im_tf(smap=smap, image=orig_im_tf, bl_image=bl_im_tf)
+        confidence_diff = confidence_diff_tf(orig_out=self.orig_out,
+                                             req_class=self.req_class,
+                                             model=self.model,
+                                             pert_im=tf.cast(pert_im, 'float32'),
+                                             im=orig_im_tf)
         return tf.cast(confidence_diff, 'float64')  # + tf.reduce_sum(smap) * self.lm
-
-    @staticmethod
-    def perturb(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
-
-        smap_resized = tf.keras.layers.UpSampling2D(size=(16, 16), interpolation='bilinear')(smap)
-        smap_eroded = -tf.nn.max_pool2d(-smap_resized, ksize=(3, 3), strides=1, padding='SAME')
-        result = image * smap_eroded + bl_image * (1 - smap_eroded)
-        return result
-
-    def confidence_diff(self, pert_im: tf.Variable, im: tf.constant) -> float:
-        zerod_out = zero_nonmax(self.orig_out)
-        req_area_size = np.count_nonzero(np.round(zerod_out))
-        mask_np = np.zeros_like(self.orig_out)
-        mask_np[:, :, self.req_class] = np.round(zerod_out[:, :, self.req_class]).astype(int)
-        mask = tf.constant(mask_np)
-        diff = tf.reduce_sum(tf.keras.activations.relu(self.model(im) - self.model(pert_im)) * mask)
-        return diff / req_area_size
 
     def optimize(self, _smap: np.ndarray,
                  iterations: int = 100,

@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from utils import MetricRecorder, cbl, smap_dist
 from bias_dataset.configs import unbiased_config
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
-from grid_saliency.grid_saliency_explanation import loss_fn, perturb_im
+from context_explanations.grid_saliency_explanation import loss_fn, perturb_im
 
 
 class TestLoss(unittest.TestCase):
