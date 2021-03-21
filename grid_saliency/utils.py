@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
-import tensorflow as tf
 from utils import zero_nonmax
-from tensorflow.keras import Model
 
 
 def generate_baseline_image(image: np.ndarray, baseline: tuple) -> np.ndarray:
@@ -51,12 +49,21 @@ def loss_fn(lm: float,
             cur_out: np.ndarray,
             orig_out: np.ndarray,
             class_r: int) -> float:
+
+    conf_diff = confidence_diff(cur_out=cur_out, orig_out=orig_out, class_r=class_r)
+
+    return lm * np.sum(smap) + conf_diff
+
+
+def confidence_diff(cur_out: np.ndarray,
+                    orig_out: np.ndarray,
+                    class_r: int):
     zerod_out = zero_nonmax(orig_out)
     req_area_size = np.count_nonzero(np.round(zerod_out))
     req_mask = np.round(zerod_out[:, :, class_r]).astype(int)
     diff_area = (zerod_out[:, :, class_r] - cur_out[:, :, class_r]) * req_mask
     diff_area[diff_area < 0] = 0
-    return lm * np.sum(smap) + (np.sum(diff_area) / req_area_size)
+    return np.sum(diff_area) / req_area_size
 
 
 def choose_random_n(a: np.ndarray, n: int) -> np.ndarray:

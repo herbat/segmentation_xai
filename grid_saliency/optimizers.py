@@ -78,21 +78,14 @@ class TfOptimizer(Optimizer):
         self.losses = []
         self.bl_image = bl_image
 
-    def loss(self, smap: np.ndarray) -> float:
+    def loss(self, smap: tf.Variable) -> tf.Tensor:
 
-        smap_sum = tf.reduce_sum(smap)
-        pert_im = perturb_im(image=self.image,
-                             smap=smap,
-                             bl_image=self.bl_image)
+        orig_im_tf = tf.cast(tf.constant(self.image), 'float32')
+        bl_im_tf = tf.cast(tf.constant(self.bl_image), 'float32')
 
-        zerod_out = zero_nonmax(self.orig_out)
-        req_area_size = np.count_nonzero(np.round(zerod_out))
-        mask = np.zeros_like(self.orig_out)
-        mask[:, :, self.req_class] = np.round(zerod_out[:, :, self.req_class]).astype(int)
-
-        confidence_diff = np.maximum(self.model.predict_gen(self.image) - self.model.predict_gen(pert_im), 0) * mask
-
-        return self.lm * smap_sum + np.sum(confidence_diff) / req_area_size
+        pert_im = self.perturb(smap=smap, image=orig_im_tf, bl_image=bl_im_tf)
+        confidence_diff = self.confidence_diff(pert_im=tf.cast(pert_im, 'float32'), im=orig_im_tf)
+        return tf.cast(confidence_diff, 'float64')  # + tf.reduce_sum(smap) * self.lm
 
     @staticmethod
     def perturb(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
@@ -137,27 +130,23 @@ class TfOptimizer(Optimizer):
             # update gradients
             grad_map[choice] += cur_grad[choice] * (1 - momentum) + grad_map_prev[choice] * momentum
             grad_map_prev = grad_map
-            loss = self.loss(smap=smap)
-            self.losses.append(loss)
+            # loss = self.loss(smap=smap)
+            # self.losses.append(loss)
+            #
+            # if loss_min > loss:
+            #     loss_min = loss
+            #     smap_min = np.copy(smap)
 
-            if loss_min > loss:
-                loss_min = loss
-                smap_min = np.copy(smap)
-
-        return smap_min, loss_min
+        return smap, loss_min
 
     def get_grad(self, smap: np.ndarray) -> np.ndarray:
-        orig_im_tf = tf.cast(tf.constant(self.image), 'float32')
-        bl_im_tf = tf.cast(tf.constant(self.bl_image), 'float32')
         smap = tf.Variable(np.expand_dims(np.repeat(smap[:, :, np.newaxis], 3, axis=2), axis=0))
 
         with tf.GradientTape(persistent=True) as tape:
             tape.watch(smap)
-            pert_im = self.perturb(smap=smap, image=orig_im_tf, bl_image=bl_im_tf)
-            conf_diff = self.confidence_diff(pert_im=tf.cast(pert_im, 'float32'), im=orig_im_tf)
+            loss = self.loss(smap)
 
-        grad = tape.gradient(conf_diff, smap).numpy().sum(axis=-1)/3
-        grad += self.lm * 0.1
+        grad = tape.gradient(loss, smap).numpy().sum(axis=-1)/3
 
         return grad.squeeze()
 

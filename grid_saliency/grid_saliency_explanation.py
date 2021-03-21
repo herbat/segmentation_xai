@@ -1,8 +1,6 @@
 from typing import Type
 
-import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 
 from grid_saliency.optimizers import Optimizer
 from grid_saliency.utils import loss_fn, perturb_im, create_baseline
@@ -53,10 +51,15 @@ class GridSaliency:
                         orig_out=orig_out,
                         lm=lm)
 
-        return opt.optimize(_smap=smap,
-                            iterations=iterations,
-                            momentum=momentum,
-                            batch_size=batch_size,
-                            learning_rate=learning_rate)
+        res, final_loss = opt.optimize(_smap=smap,
+                                       iterations=iterations,
+                                       momentum=momentum,
+                                       batch_size=batch_size,
+                                       learning_rate=learning_rate)
+
+        # if final_loss > min(losses):
+        #     res = smap
+
+        return res
 
 
