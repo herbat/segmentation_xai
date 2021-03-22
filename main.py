@@ -10,6 +10,8 @@ from evaluations import proportionality
 from utils import decode_segmap, cbl, smap_dist, MetricRecorder
 from context_explanations.optimizers import MySGD, TfOptimizer
 from context_explanations.grid_saliency_explanation import GridSaliency
+from context_explanations.integrated_gradients import IntegratedGradients
+from context_explanations.occlusion_confidence import OcclusionConfidence
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 
@@ -59,36 +61,57 @@ for i in range(10):
 
     x_in = np.repeat(x, 3, axis=3)[i:i + 1]
     biased_tile = m[i]['biased_tile']
-    out_tf = GridSaliency.generate_saliency_map(image=x_in,
-                                                model=model,
-                                                optimizer=TfOptimizer,
-                                                mask_res=(4, 4),
-                                                req_class=i % 10,
-                                                baseline='value',
-                                                batch_size=4,
-                                                iterations=100)
+    # out_tf = GridSaliency.generate_saliency_map(image=x_in,
+    #                                             model=model,
+    #                                             optimizer=TfOptimizer,
+    #                                             mask_res=(4, 4),
+    #                                             req_class=i % 10,
+    #                                             baseline='value',
+    #                                             batch_size=4,
+    #                                             iterations=100)
+    #
+    # print("tf", proportionality(out_tf, x_in, model, req_class=i, baseline=('value', 0)))
+    #
+    # out_my = GridSaliency.generate_saliency_map(image=x_in,
+    #                                             model=model,
+    #                                             optimizer=MySGD,
+    #                                             mask_res=(4, 4),
+    #                                             req_class=i % 10,
+    #                                             baseline='value',
+    #                                             batch_size=5,
+    #                                             iterations=100)
+    #
+    # print("my", proportionality(out_my, x_in, model, req_class=i, baseline=('value', 0)))
+    #
 
-    print("tf", proportionality(out_tf, x_in, model, req_class=i, baseline=('value', 0)))
+    integrated_gradients = IntegratedGradients(image=x_in,
+                                               model=model,
+                                               mask_res=(4, 4),
+                                               req_class=i % 10,
+                                               baseline=('value', 0))
 
-    out_my = GridSaliency.generate_saliency_map(image=x_in,
-                                                model=model,
-                                                optimizer=MySGD,
-                                                mask_res=(4, 4),
-                                                req_class=i % 10,
-                                                baseline='value',
-                                                batch_size=5,
-                                                iterations=100)
+    out_ig = integrated_gradients.generate_saliency_map()
+    print(proportionality(out_ig, x_in, model, req_class=i, baseline=('value', 0)))
 
-    print("my", proportionality(out_my, x_in, model, req_class=i, baseline=('value', 0)))
+    occlusion_confidence = OcclusionConfidence(image=x_in,
+                                               model=model,
+                                               mask_res=(4, 4),
+                                               req_class=i % 10,
+                                               baseline=('value', 0))
 
-    tf_metric_recorder(out_tf, biased_tile)
+    out_oc = occlusion_confidence.generate_saliency_map_sufficiency(threshold=0.02)
+    print(proportionality(out_oc, x_in, model, req_class=i, baseline=('value', 0)))
+    # tf_metric_recorder(out_tf, biased_tile)
+    #
+    # my_metric_recorder(out_my, biased_tile)
+    #
+    # plt.imshow(out_tf, vmin=0, vmax=1)
+    # plt.show()
+    #
+    # plt.imshow(out_my, vmin=0, vmax=1)
+    # plt.show()
 
-    my_metric_recorder(out_my, biased_tile)
-
-    plt.imshow(out_tf, vmin=0, vmax=1)
-    plt.show()
-
-    plt.imshow(out_my, vmin=0, vmax=1)
+    plt.imshow(out_ig)
     plt.show()
 
 tf_metric_recorder.plot()

@@ -37,12 +37,12 @@ def decode_segmap(a: np.ndarray, color_array: np.ndarray) -> np.ndarray:
     return tmpa
 
 
-def smap_dist(smap: np.ndarray, biased_mask: np.ndarray):
+def smap_dist(smap: np.ndarray, biased_mask: np.ndarray) -> float:
     bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)/255
-    return np.sum((smap-bm)**2)
+    return float(np.sum((smap-bm)**2))
 
 
-def cbl(smap: np.ndarray, biased_mask: np.ndarray):
+def cbl(smap: np.ndarray, biased_mask: np.ndarray) -> float:
     bm = cv2.resize((biased_mask*255).astype('uint8'), smap.shape)/255
     if bm.max() == 0 and smap.max() == 0:
         return 1
@@ -53,3 +53,7 @@ def cbl(smap: np.ndarray, biased_mask: np.ndarray):
     all_pixels = np.sum(smap)
 
     return correct_pixels/all_pixels
+
+
+def normalize(a: np.ndarray) -> np.ndarray:
+    return (a - a.min())/(a.max() - a.min())
