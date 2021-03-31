@@ -8,11 +8,11 @@ from context_explanations.utils import perturb_im, confidence_diff, create_basel
 
 class OcclusionSufficiency(Explanation):
 
-    def __init__(self,
-                 baseline: Tuple[str, float]):
+    def __init__(self, baseline: Tuple[str, float], threshold: float):
 
         self.baseline = baseline
         self.name = "Occlusion Sufficiency"
+        self.threshold = threshold
 
     def get_explanation(self,
                         image: np.ndarray,
@@ -35,8 +35,9 @@ class OcclusionSufficiency(Explanation):
                                      req_class=req_class,
                                      baseline=self.baseline,
                                      reverse=False)
-        # if conf_diffs.max() < threshold:
-        #     return smap
+        if conf_diffs.max() < self.threshold:
+            print(conf_diffs.max())
+            return smap
         min_diff = int(np.argmin(conf_diffs))
         smap[list(np.ndindex(smap.shape))[min_diff]] = 1
         return smap
@@ -44,10 +45,10 @@ class OcclusionSufficiency(Explanation):
 
 class OcclusionNecessity(Explanation):
 
-    def __init__(self,
-                 baseline: Tuple[str, float]):
+    def __init__(self, baseline: Tuple[str, float], threshold: float):
         self.baseline = baseline
         self.name = "Occlusion Necessity"
+        self.threshold = threshold
 
     def get_explanation(self,
                         model,
@@ -70,8 +71,9 @@ class OcclusionNecessity(Explanation):
                                      req_class=req_class,
                                      baseline=self.baseline,
                                      reverse=True)
-        # if conf_diffs.max() < threshold:
-        #     return smap
+        if conf_diffs.max() < self.threshold:
+            print(conf_diffs.max())
+            return np.zeros(mask_res)
         max_diff = int(np.argmax(conf_diffs))
         smap = np.zeros_like(smap)
         smap[list(np.ndindex(smap.shape))[max_diff]] = 1
@@ -88,7 +90,7 @@ def _get_conf_diffs(smap: np.ndarray,
     orig_out = model.predict_gen(image)
     bl_image = create_baseline(image=image,
                                mask_class=req_class,
-                               orig_out=orig_out.squeeze(),
+                               orig_out=orig_out,
                                baseline=baseline)
 
     conf_diffs = []

@@ -62,7 +62,7 @@ def confidence_diff(cur_out: np.ndarray,
     zerod_out = zero_nonmax(orig_out)
     req_area_size = np.count_nonzero(np.round(zerod_out))
     req_mask = np.round(zerod_out[:, :, class_r]).astype(int)
-    diff_area = (zerod_out[:, :, class_r] - cur_out[:, :, class_r]) * req_mask
+    diff_area = (zerod_out[:, :, class_r] - cur_out[0, :, :, class_r]) * req_mask
     diff_area[diff_area < 0] = 0
     return np.sum(diff_area) / req_area_size
 
@@ -87,7 +87,7 @@ def confidence_diff_tf(orig_out: np.ndarray, req_class: int, model, pert_im: tf.
     zerod_out = zero_nonmax(orig_out)
     req_area_size = np.count_nonzero(np.round(zerod_out))
     mask_np = np.zeros_like(orig_out)
-    mask_np[:, :, req_class] = np.round(zerod_out[:, :, req_class]).astype(int)
+    mask_np[0, :, :, req_class] = np.round(zerod_out[:, :, req_class]).astype(int)
     mask = tf.constant(mask_np)
     diff = tf.reduce_sum(tf.keras.activations.relu(model(im) - model(pert_im)) * mask)
     return diff / req_area_size

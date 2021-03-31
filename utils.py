@@ -23,7 +23,10 @@ class MetricRecorder:
 
 
 def zero_nonmax(a: np.ndarray) -> np.ndarray:
-    return a * (a >= np.sort(a, axis=2)[:, :, [-1]])
+    if a.ndim != 4:
+        raise ValueError(f"{a.ndim}")
+    max_values = np.repeat((np.max(a, axis=-1))[:, :, :, np.newaxis], a.shape[-1], axis=-1)
+    return (a * np.array(a == max_values, dtype=np.uint8)).squeeze()
 
 
 def decode_segmap(a: np.ndarray, color_array: np.ndarray) -> np.ndarray:
@@ -56,4 +59,4 @@ def cbl(smap: np.ndarray, biased_mask: np.ndarray) -> float:
 
 
 def normalize(a: np.ndarray) -> np.ndarray:
-    return (a - a.min())/(a.max() - a.min())
+    return (a - a.min())/(a.max() - a.min()) if a.min() != a.max() else a

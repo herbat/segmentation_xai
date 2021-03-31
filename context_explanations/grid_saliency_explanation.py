@@ -32,7 +32,7 @@ class GridSaliency(Explanation):
                         mask_res: tuple,
                         req_class: int):
 
-        orig_out = model.predict_gen(image)[0]
+        orig_out = model.predict_gen(image)
         baseline_values = [0, 1/4, 1/2, 3/4, 1]
         losses = []
 
@@ -47,7 +47,7 @@ class GridSaliency(Explanation):
                               smap=smap_tmp,
                               bl_image=bl_image)
 
-            out = model.predict_gen(im_p)[0]
+            out = model.predict_gen(im_p)
             losses.append(loss_fn(lm=self.lm,
                                   smap=smap_tmp,
                                   cur_out=out,

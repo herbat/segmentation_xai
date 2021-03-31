@@ -1,6 +1,5 @@
-import argparse
-
 import numpy as np
+from matplotlib import pyplot as plt
 
 from pipeline_config import models, dataset, explanations, evaluations, presenter, mask_res
 
@@ -29,12 +28,19 @@ if __name__ == "__main__":
         for x_batch, y_batch in dataset:
 
             for image, req_class in zip(x_batch, y_batch):
+                plt.imshow(image)
+                plt.title(req_class)
+                plt.show()
                 image = np.expand_dims(image, axis=0)
                 for explanation_method in explanations:
                     explanation = explanation_method.get_explanation(image=image,
                                                                      model=model,
                                                                      mask_res=mask_res,
                                                                      req_class=req_class)
+
+                    plt.imshow(explanation, vmin=0, vmax=1)
+                    plt.title(explanation_method.name)
+                    plt.show()
 
                     for i, evaluation in enumerate(evaluations):
                         eval_results[explanation_method.name][i].append(evaluation(smap=explanation,
@@ -44,5 +50,6 @@ if __name__ == "__main__":
                                                                                    baseline=('value', 0)))
 
             presenter(model.name, eval_results)
+
 
 

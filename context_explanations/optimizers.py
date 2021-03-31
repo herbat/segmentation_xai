@@ -183,7 +183,7 @@ class MySGD(Optimizer):
                               bl_image=self.bl_image)
 
             # get the current output for the perturbed image
-            cur_out = self.model.predict_gen(p_im)[0]
+            cur_out = self.model.predict_gen(p_im)
 
             loss = loss_fn(lm=lm,
                            smap=smap,

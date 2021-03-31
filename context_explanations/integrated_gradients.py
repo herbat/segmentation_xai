@@ -29,7 +29,7 @@ class IntegratedGradients(Explanation):
         orig_out = model.predict_gen(image)
         bl_image = create_baseline(image=image,
                                    mask_class=req_class,
-                                   orig_out=orig_out.squeeze(),
+                                   orig_out=orig_out,
                                    baseline=baseline)
 
         orig_im_tf = tf.cast(tf.constant(image), 'float32')
