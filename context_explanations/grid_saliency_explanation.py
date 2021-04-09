@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Optional
 
 import numpy as np
 
@@ -15,7 +15,8 @@ class GridSaliency(Explanation):
                  lm: float = 0.02,
                  batch_size: int = 5,
                  momentum: float = 0.5,
-                 learning_rate: float = 0.2):
+                 learning_rate: float = 0.2,
+                 seed: Optional[int] = None):
 
         self.optimizer = MySGD
         self.baseline = baseline
@@ -25,6 +26,7 @@ class GridSaliency(Explanation):
         self.momentum = momentum
         self.learning_rate = learning_rate
         self.name = "Grid Saliency"
+        self.seed = seed
 
     def get_explanation(self,
                         image: np.ndarray,
@@ -73,10 +75,11 @@ class GridSaliency(Explanation):
                                        iterations=self.iterations,
                                        momentum=self.momentum,
                                        batch_size=self.batch_size,
-                                       learning_rate=self.learning_rate)
+                                       learning_rate=self.learning_rate,
+                                       seed=self.seed)
 
         if final_loss > min(losses):
-            res = smap
+            res = np.zeros(mask_res)
 
         return res
 

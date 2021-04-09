@@ -1,5 +1,5 @@
 import abc
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import tensorflow as tf
@@ -156,7 +156,8 @@ class MySGD(Optimizer):
                  iterations: int = 100,
                  batch_size: int = 5,
                  learning_rate: float = 0.2,
-                 lm: float = 0.02) -> Tuple[np.ndarray, float]:
+                 lm: float = 0.02,
+                 seed: Optional[int] = None) -> Tuple[np.ndarray, float]:
 
         smap = np.copy(_smap)
 
@@ -171,7 +172,7 @@ class MySGD(Optimizer):
         for i in range(iterations):
 
             # choose a random set of pixels in the saliency space
-            choice = choose_random_n(smap, batch_size)
+            choice = choose_random_n(smap, batch_size, seed=seed)
             smap[choice] += grad_map[choice] * learning_rate
 
             smap[smap <= 0] = 0

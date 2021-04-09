@@ -30,12 +30,13 @@ def dataset_generator(gen) -> Tuple[np.ndarray, np.ndarray]:
 image_size_x = 64
 image_size_y = 64
 mask_res = (4, 4)
+seed = 1
 dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
 models = [UnetModel(classes=11, input_shape=(64, 64, 3), load=True)]
 explanations = [OcclusionSufficiency(baseline=('value', 0), threshold=0.05),
                 OcclusionNecessity(baseline=('value', 0), threshold=0.05),
                 IntegratedGradients(baseline=('value', 0)),
-                GridSaliency(batch_size=4, iterations=100, baseline='value')]
+                GridSaliency(batch_size=4, iterations=100, baseline='value', seed=seed)]
 evaluations = [proportionality_necessity,
                proportionality_sufficiency]
 presenter = Presenter(plot=False, print_res=True, save_to_file=False)

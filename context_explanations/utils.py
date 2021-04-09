@@ -1,3 +1,5 @@
+from typing import Optional
+
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -67,7 +69,8 @@ def confidence_diff(cur_out: np.ndarray,
     return np.sum(diff_area) / req_area_size
 
 
-def choose_random_n(a: np.ndarray, n: int) -> np.ndarray:
+def choose_random_n(a: np.ndarray, n: int, seed: Optional[int]) -> np.ndarray:
+    if seed is not None: np.random.seed(seed)
     sample = np.random.uniform(a)
     flat = sample.flatten()
     flat.sort()

@@ -1,7 +1,10 @@
+from datetime import datetime
+import pickle
+
 import numpy as np
 from matplotlib import pyplot as plt
 
-from pipeline_config import models, dataset, explanations, evaluations, presenter, mask_res
+from pipeline_config import models, dataset, explanations, evaluations, mask_res, seed
 
 colors_mnist = np.asarray([[250, 227, 227],
                            [247, 212, 188],
@@ -19,7 +22,7 @@ if __name__ == "__main__":
 
     for model in models:
 
-        eval_results = {}
+        eval_results = {'seed': seed}
         for i in range(len(explanations)):
             eval_results[explanations[i].name] = []
             for j in range(len(evaluations)):
@@ -49,7 +52,8 @@ if __name__ == "__main__":
                                                                                    req_class=req_class,
                                                                                    baseline=('value', 0)))
 
-            presenter(model.name, eval_results)
+        outfile = open(f"{model.name}_{datetime.now().strftime('%mm%dd%Hh%Mm')}.pkl")
+        pickle.dump(eval_results, outfile)
 
 
 
