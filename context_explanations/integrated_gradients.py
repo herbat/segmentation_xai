@@ -1,20 +1,21 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 import tensorflow as tf
 
 from utils import normalize
+from baseline import Baseline
 from context_explanations.explanation import Explanation
-from context_explanations.utils import perturb_im_tf, confidence_diff_tf, create_baseline
+from context_explanations.utils import perturb_im_tf, confidence_diff_tf, try_baselines
 
 
 class IntegratedGradients(Explanation):
 
     def __init__(self,
-                 baseline: Tuple[str, float],
+                 baselines: List[Baseline],
                  path_steps: int = 10):
 
-        self.baseline = baseline
+        self.baselines = baselines
         self.path_steps = path_steps
         self.name = "Integrated Gradients"
 
@@ -23,15 +24,12 @@ class IntegratedGradients(Explanation):
                   image: np.ndarray,
                   model,
                   req_class: int,
-                  baseline: Tuple[str, float]) -> np.ndarray:
+                  baseline: Baseline) -> np.ndarray:
         smap = tf.Variable(np.expand_dims(np.repeat(_smap[:, :, np.newaxis], 3, axis=2), axis=0))
 
-        orig_out = model.predict_gen(image)
-        bl_image = create_baseline(image=image,
-                                   mask_class=req_class,
-                                   orig_out=orig_out,
-                                   baseline=baseline)
+        bl_image = baseline.get_default_baseline(image=image, req_class=req_class, orig_out=model.predict_gen(image))
 
+        orig_out = model.predict_gen(image)
         orig_im_tf = tf.cast(tf.constant(image), 'float32')
         bl_im_tf = tf.cast(tf.constant(bl_image), 'float32')
 
@@ -56,12 +54,19 @@ class IntegratedGradients(Explanation):
                         req_class: int) -> np.ndarray:
         smap = np.ones(mask_res)
         grads = []
+        baseline = try_baselines(mask_res=mask_res,
+                                 baselines=self.baselines,
+                                 image=image,
+                                 model=model,
+                                 orig_out=model.predict_gen(image),
+                                 req_class=req_class)
+
         for step in np.arange(0, 1, 1/self.path_steps):
             grad = self._get_grad(_smap=smap * step,
                                   image=image,
                                   model=model,
                                   req_class=req_class,
-                                  baseline=self.baseline)
+                                  baseline=baseline)
             grads.append(grad)
 
         result = np.stack(grads).sum(0)

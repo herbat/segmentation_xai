@@ -50,7 +50,7 @@ class OcclusionSufficiency(Explanation):
         tuned_diffs, _ = _get_conf_diffs(smap=smap,
                                          model=model,
                                          image=image,
-                                         baselines=best_baseline,
+                                         baselines=[best_baseline],
                                          req_class=req_class,
                                          indices=[best_idx] * len(tune_values),
                                          values=tune_values)
@@ -106,7 +106,7 @@ class OcclusionNecessity(Explanation):
                                          model=model,
                                          image=image,
                                          req_class=req_class,
-                                         baselines=best_baseline,
+                                         baselines=[best_baseline],
                                          indices=[best_idx] * len(tune_values),
                                          values=tune_values)
         losses = tuned_diffs / (np.ones_like(tune_values) - tune_values)
@@ -122,7 +122,7 @@ def _get_conf_diffs(smap: np.ndarray,
                     req_class: int,
                     baselines: List[Baseline],
                     indices: Iterable,
-                    values: Iterable):
+                    values: Iterable) -> Tuple[np.ndarray, Baseline]:
 
     orig_out = model.predict_gen(image)
 
@@ -134,7 +134,7 @@ def _get_conf_diffs(smap: np.ndarray,
                                  orig_out=orig_out,
                                  req_class=req_class)
     else:
-        baseline = baselines
+        baseline = baselines[0]
 
     bl_image = baseline.get_default_baseline(image=image, req_class=req_class, orig_out=orig_out)
 

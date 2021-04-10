@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 from matplotlib import pyplot as plt
 
+from baseline import Baseline
 from pipeline_config import models, dataset, explanations, evaluations, mask_res, seed
 
 colors_mnist = np.asarray([[250, 227, 227],
@@ -50,7 +51,7 @@ if __name__ == "__main__":
                                                                                    image=image,
                                                                                    model=model,
                                                                                    req_class=req_class,
-                                                                                   baseline=('value', 0)))
+                                                                                   baseline=Baseline('value', 0)))
 
         outfile = open(f"{model.name}_{datetime.now().strftime('%mm%dd%Hh%Mm')}.pkl")
         pickle.dump(eval_results, outfile)
