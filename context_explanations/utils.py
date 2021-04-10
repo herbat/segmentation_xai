@@ -81,11 +81,11 @@ def try_baselines(mask_res: Tuple[int, int],
                   orig_out: np.ndarray,
                   req_class: int) -> Baseline:
 
-    max_overall = 1
+    max_overall = 0
     best_baseline = None
 
     for bl in baselines:
-        max_val = 1
+        max_val = 0
         best_val = 0
         for bl_val, bl_image in bl.get_all_baselines(image=image, req_class=req_class, orig_out=orig_out):
             smap_tmp = np.zeros_like(mask_res)
@@ -93,7 +93,7 @@ def try_baselines(mask_res: Tuple[int, int],
 
             out = model.predict_gen(im_p)
             cd = confidence_diff(cur_out=out, orig_out=orig_out, class_r=req_class)
-            if cd < max_val:
+            if cd > max_val:
                 best_val = bl_val
                 max_val = cd
         bl.default_value = best_val

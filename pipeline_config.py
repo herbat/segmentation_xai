@@ -34,16 +34,23 @@ mask_res = (4, 4)
 seed = 1
 dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
 models = [UnetModel(classes=11, input_shape=(64, 64, 3), load=True)]
-explanations = [OcclusionSufficiency(baselines=[Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5)))],
-                                     threshold=1.3,
-                                     tune_res=10),
-                OcclusionNecessity(baselines=[Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5)))],
-                                   threshold=1.3,
-                                   tune_res=10),
-                # IntegratedGradients(baseline=('value', 0)),
-                # GridSaliency(batch_size=4, iterations=100, baseline='value', seed=seed)
-                ]
-evaluations = [proportionality_necessity,
-               proportionality_sufficiency]
+
+baselines = [
+    Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5))),
+    Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)))
+]
+
+explanations = [
+    OcclusionSufficiency(baselines=baselines, threshold=1.3, tune_res=10),
+    OcclusionNecessity(baselines=baselines, threshold=1.3, tune_res=10),
+    IntegratedGradients(baselines=baselines),
+    GridSaliency(batch_size=4, iterations=100, baselines=baselines, seed=seed)
+]
+
+evaluations = [
+    proportionality_necessity,
+    proportionality_sufficiency
+]
+
 presenter = Presenter(plot=False, print_res=True, save_to_file=False)
 
