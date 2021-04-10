@@ -2,6 +2,7 @@ from typing import Tuple
 
 import numpy as np
 
+from baseline import Baseline
 from presenter import Presenter
 from models.unet_sm_model import UnetModel
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
@@ -33,10 +34,15 @@ mask_res = (4, 4)
 seed = 1
 dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
 models = [UnetModel(classes=11, input_shape=(64, 64, 3), load=True)]
-explanations = [OcclusionSufficiency(baseline=('value', 0), threshold=0.05),
-                OcclusionNecessity(baseline=('value', 0), threshold=0.05),
-                IntegratedGradients(baseline=('value', 0)),
-                GridSaliency(batch_size=4, iterations=100, baseline='value', seed=seed)]
+explanations = [OcclusionSufficiency(baselines=[Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5)))],
+                                     threshold=1.3,
+                                     tune_res=10),
+                OcclusionNecessity(baselines=[Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5)))],
+                                   threshold=1.3,
+                                   tune_res=10),
+                # IntegratedGradients(baseline=('value', 0)),
+                # GridSaliency(batch_size=4, iterations=100, baseline='value', seed=seed)
+                ]
 evaluations = [proportionality_necessity,
                proportionality_sufficiency]
 presenter = Presenter(plot=False, print_res=True, save_to_file=False)

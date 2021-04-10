@@ -1,33 +1,11 @@
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import cv2
 import numpy as np
 import tensorflow as tf
+
 from utils import zero_nonmax
-
-
-def generate_baseline_image(image: np.ndarray, baseline: tuple) -> np.ndarray:
-    """
-    Generate different types of baselines.
-
-    :param np.ndarray image: image to generate baseline for
-    :param str baseline: name of the baseline type
-    """
-    types = {
-        'blur': lambda im, x: cv2.GaussianBlur(im, (x, x), 0),
-        'value': lambda im, x: np.ones_like(im) * x,
-        'uniform': lambda im, x: np.random.uniform(0, x, im.shape),
-        'gaussian': lambda im, x: np.abs(np.random.normal(0, x, im.shape))
-    }
-
-    return types[baseline[0]](image, baseline[1])
-
-
-def create_baseline(image: np.ndarray, mask_class: int, orig_out: np.ndarray, baseline: tuple,) -> np.ndarray:
-    bl_im = generate_baseline_image(image=image, baseline=baseline)
-    zerod_out = zero_nonmax(orig_out)
-    bl_im[0, zerod_out[:, :, mask_class] > 0, :] = image[0, zerod_out[:, :, mask_class] > 0, :]
-    return bl_im
+from baseline import Baseline
 
 
 def perturb_im(image: np.ndarray,
@@ -94,3 +72,33 @@ def confidence_diff_tf(orig_out: np.ndarray, req_class: int, model, pert_im: tf.
     mask = tf.constant(mask_np)
     diff = tf.reduce_sum(tf.keras.activations.relu(model(im) - model(pert_im)) * mask)
     return diff / req_area_size
+
+
+def try_baselines(mask_res: Tuple[int, int],
+                  baselines: List[Baseline],
+                  image: np.ndarray,
+                  model,
+                  orig_out: np.ndarray,
+                  req_class: int) -> Baseline:
+
+    max_overall = 1
+    best_baseline = None
+
+    for bl in baselines:
+        max_val = 1
+        best_val = 0
+        for bl_val, bl_image in bl.get_all_baselines(image=image, req_class=req_class, orig_out=orig_out):
+            smap_tmp = np.zeros_like(mask_res)
+            im_p = perturb_im(image=image, smap=smap_tmp, bl_image=bl_image)
+
+            out = model.predict_gen(im_p)
+            cd = confidence_diff(cur_out=out, orig_out=orig_out, class_r=req_class)
+            if cd < max_val:
+                best_val = bl_val
+                max_val = cd
+        bl.default_value = best_val
+        if max_val > max_overall:
+            best_baseline = bl
+            max_overall = max_val
+
+    return best_baseline

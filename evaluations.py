@@ -23,7 +23,7 @@ def proportionality_sufficiency(smap: np.ndarray,
     """
 
     if np.sum(smap) == 0:
-        print("Empty smap: proportionality is undefined for an empty saliency map.")
+        # print("Empty smap: proportionality is undefined for an empty saliency map.")
         return np.NAN
 
     orig_out = model.predict_gen(image)
@@ -50,7 +50,7 @@ def proportionality_necessity(smap: np.ndarray,
     """
 
     if np.sum(smap) == 0:
-        print("Empty smap: proportionality is undefined for an empty saliency map.")
+        # print("Empty smap: proportionality is undefined for an empty saliency map.")
         return np.NAN
 
     orig_out = model.predict_gen(image)

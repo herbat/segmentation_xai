@@ -1,16 +1,17 @@
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 
+from baseline import Baseline
 from context_explanations.optimizers import MySGD
+from context_explanations.utils import try_baselines
 from context_explanations.explanation import Explanation
-from context_explanations.utils import loss_fn, perturb_im, create_baseline
 
 
 class GridSaliency(Explanation):
 
     def __init__(self,
-                 baseline: str = None,
+                 baselines: List[Baseline],
                  iterations: int = 100,
                  lm: float = 0.02,
                  batch_size: int = 5,
@@ -19,7 +20,7 @@ class GridSaliency(Explanation):
                  seed: Optional[int] = None):
 
         self.optimizer = MySGD
-        self.baseline = baseline
+        self.baselines = baselines
         self.iterations = iterations
         self.lm = lm
         self.batch_size = batch_size
@@ -35,32 +36,16 @@ class GridSaliency(Explanation):
                         req_class: int):
 
         orig_out = model.predict_gen(image)
-        baseline_values = [0, 1/4, 1/2, 3/4, 1]
         losses = []
 
-        for bv in baseline_values:
-            smap_tmp = np.zeros(mask_res)
-            bl_image = create_baseline(image=image,
-                                       mask_class=req_class,
-                                       orig_out=orig_out,
-                                       baseline=(self.baseline, bv))
+        baseline = try_baselines(mask_res=mask_res,
+                                 baselines=self.baselines,
+                                 image=image,
+                                 model=model,
+                                 orig_out=orig_out,
+                                 req_class=req_class)
 
-            im_p = perturb_im(image=image,
-                              smap=smap_tmp,
-                              bl_image=bl_image)
-
-            out = model.predict_gen(im_p)
-            losses.append(loss_fn(lm=self.lm,
-                                  smap=smap_tmp,
-                                  cur_out=out,
-                                  orig_out=orig_out,
-                                  class_r=req_class))
-
-        bl_value = baseline_values[int(np.argmin(losses))]
-        bl_image = create_baseline(image=image,
-                                   mask_class=req_class,
-                                   orig_out=orig_out,
-                                   baseline=(self.baseline, bl_value))
+        bl_image = baseline.get_default_baseline(image=image, orig_out=orig_out, req_class=req_class)
 
         smap = np.ones(mask_res) * 0.5
 
