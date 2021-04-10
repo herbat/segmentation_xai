@@ -3,7 +3,7 @@ from typing import Generator, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from context_explanations.utils import zero_nonmax
+from utils import zero_nonmax
 
 
 class Baseline:
