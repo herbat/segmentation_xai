@@ -37,7 +37,7 @@ models = [UnetModel(classes=11, input_shape=(64, 64, 3), load=True)]
 
 baselines = [
     Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5))),
-    Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)))
+    Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)), seed=seed)
 ]
 
 explanations = [

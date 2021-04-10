@@ -7,13 +7,18 @@ from utils import zero_nonmax
 
 
 class Baseline:
-    def __init__(self, bl_type: str, default_value: float, possible_values: Optional[List[float]] = None):
+    def __init__(self, bl_type: str,
+                 default_value: float,
+                 possible_values: Optional[List[float]] = None,
+                 seed: Optional[int] = None):
+
         self.bl_type = bl_type
         self.default_value = default_value
         self.possible_values = possible_values
+        self.seed = seed
 
     @staticmethod
-    def _generate_baseline_image(image: np.ndarray, baseline: tuple) -> np.ndarray:
+    def _generate_baseline_image(image: np.ndarray, baseline: tuple, seed: Optional[int] = None) -> np.ndarray:
         """
         Generate different types of baselines.
 
@@ -27,11 +32,19 @@ class Baseline:
             'gaussian': lambda im, x: np.abs(np.random.normal(0, x, im.shape))
         }
 
+        if seed:
+            np.random.seed(seed)
+
         return types[baseline[0]](image, baseline[1])
 
     @staticmethod
-    def _create_baseline(image: np.ndarray, req_class: int, orig_out: np.ndarray, baseline: tuple, ) -> np.ndarray:
-        bl_im = Baseline._generate_baseline_image(image=image, baseline=baseline)
+    def _create_baseline(image: np.ndarray,
+                         req_class: int,
+                         orig_out: np.ndarray,
+                         baseline: tuple,
+                         seed: Optional[int] = None) -> np.ndarray:
+
+        bl_im = Baseline._generate_baseline_image(image=image, baseline=baseline, seed=seed)
         zerod_out = zero_nonmax(orig_out)
         bl_im[0, zerod_out[:, :, req_class] > 0, :] = image[0, zerod_out[:, :, req_class] > 0, :]
         return bl_im
@@ -51,6 +64,7 @@ class Baseline:
             bl_image = self._create_baseline(image=image,
                                              req_class=req_class,
                                              orig_out=orig_out,
-                                             baseline=(self.bl_type, value))
+                                             baseline=(self.bl_type, value),
+                                             seed=self.seed)
             yield value, bl_image
 

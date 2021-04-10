@@ -4,8 +4,8 @@ import numpy as np
 
 from baseline import Baseline
 from context_explanations.optimizers import MySGD
-from context_explanations.utils import try_baselines
 from context_explanations.explanation import Explanation
+from context_explanations.utils import try_baselines, loss_fn
 
 
 class GridSaliency(Explanation):
@@ -36,7 +36,6 @@ class GridSaliency(Explanation):
                         req_class: int):
 
         orig_out = model.predict_gen(image)
-        losses = []
 
         baseline = try_baselines(mask_res=mask_res,
                                  baselines=self.baselines,
@@ -46,6 +45,12 @@ class GridSaliency(Explanation):
                                  req_class=req_class)
 
         bl_image = baseline.get_default_baseline(image=image, orig_out=orig_out, req_class=req_class)
+
+        base_loss = loss_fn(lm=self.lm,
+                            smap=np.zeros(mask_res),
+                            cur_out=model.predict_gen(bl_image),
+                            orig_out=orig_out,
+                            class_r=req_class)
 
         smap = np.ones(mask_res) * 0.5
 
@@ -63,7 +68,7 @@ class GridSaliency(Explanation):
                                        learning_rate=self.learning_rate,
                                        seed=self.seed)
 
-        if final_loss > min(losses):
+        if final_loss > base_loss:
             res = np.zeros(mask_res)
 
         return res
