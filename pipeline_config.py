@@ -1,10 +1,13 @@
 from typing import Tuple
 
 import numpy as np
+from tensorflow_datasets.image import Cityscapes
 
 from baseline import Baseline
 from presenter import Presenter
 from models.unet_sm_model import UnetModel
+from models.pspnet_sm_model import PSPNetModel
+from models.deeplabv3 import DeepLabV3Plus
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 from context_explanations.grid_saliency_explanation import GridSaliency
@@ -33,7 +36,11 @@ image_size_y = 64
 mask_res = (4, 4)
 seed = 1
 dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
-models = [UnetModel(classes=11, input_shape=(64, 64, 3), load=True)]
+models = [
+    # UnetModel(classes=11, input_shape=(64, 64, 3), load=True),
+    PSPNetModel(classes=11, input_shape=(64, 64, 3)),
+    DeepLabV3Plus(64, 64, nclasses=11)
+]
 
 baselines = [
     Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5))),

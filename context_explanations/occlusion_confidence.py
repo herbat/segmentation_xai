@@ -1,4 +1,4 @@
-from typing import Tuple, Iterable, List, Optional, Union
+from typing import Tuple, Iterable, List
 
 import numpy as np
 
@@ -40,7 +40,7 @@ class OcclusionSufficiency(Explanation):
                                                     values=[1] * len(smap.flatten()))
 
         print(req_class, np.median(conf_diffs) / conf_diffs.min())
-        if conf_diffs.max() / np.median(conf_diffs) > self.threshold:
+        if np.median(conf_diffs) / conf_diffs.min() > self.threshold:
             return smap
         min_diff = int(np.argmin(conf_diffs))
         best_idx = list(np.ndindex(smap.shape))[min_diff]

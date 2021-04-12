@@ -1,5 +1,6 @@
 import numpy as np
 from tensorflow import keras
+from keras.utils import generic_utils
 
 import segmentation_models as sm
 
