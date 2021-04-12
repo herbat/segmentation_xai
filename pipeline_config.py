@@ -1,13 +1,13 @@
-from typing import Tuple
+from typing import Tuple, Type, Optional
 
 import numpy as np
-from tensorflow_datasets.image import Cityscapes
+import tensorflow as tf
+import tensorflow_datasets as tfds
 
 from baseline import Baseline
 from presenter import Presenter
 from models.unet_sm_model import UnetModel
 from models.pspnet_sm_model import PSPNetModel
-from models.deeplabv3 import DeepLabV3Plus
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 from context_explanations.grid_saliency_explanation import GridSaliency
@@ -31,15 +31,24 @@ def dataset_generator(gen) -> Tuple[np.ndarray, np.ndarray]:
         yield get_x(bx), get_y(by)
 
 
-image_size_x = 64
-image_size_y = 64
-mask_res = (4, 4)
+def cityscapes_generator(shape):
+    ds = tfds.load("cityscapes")['train']
+
+    ds = ds.batch(100)
+
+    for x in tfds.as_numpy(ds):
+        yield tf.image.resize(x['image_left'], shape)/255, [39] * 100
+
+
+image_size_x = 48
+image_size_y = 96
+mask_res = (4, 8)
 seed = 1
-dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
+dataset = cityscapes_generator([image_size_x, image_size_y])
 models = [
     # UnetModel(classes=11, input_shape=(64, 64, 3), load=True),
-    PSPNetModel(classes=11, input_shape=(64, 64, 3)),
-    DeepLabV3Plus(64, 64, nclasses=11)
+    PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
+    # DeepLabV3Plus(64, 64, nclasses=11)
 ]
 
 baselines = [

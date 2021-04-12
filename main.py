@@ -22,7 +22,6 @@ colors_mnist = np.asarray([[250, 227, 227],
 if __name__ == "__main__":
 
     for model in models:
-
         eval_results = {'seed': seed}
         for i in range(len(explanations)):
             eval_results[explanations[i].name] = []
@@ -30,7 +29,6 @@ if __name__ == "__main__":
                 eval_results[explanations[i].name].append([])
 
         for x_batch, y_batch in dataset:
-
             for image, req_class in zip(x_batch, y_batch):
                 plt.imshow(image)
                 plt.title(req_class)

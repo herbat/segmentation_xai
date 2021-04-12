@@ -13,7 +13,7 @@ def perturb_im(image: np.ndarray,
                bl_image: np.ndarray) -> np.ndarray:
     # scale and erode smap
     smap = (smap * 255).astype(np.uint8)
-    smap_resized = cv2.resize(smap, image.shape[1:-1], interpolation=cv2.INTER_LINEAR)
+    smap_resized = cv2.resize(smap, image.shape[1:-1][::-1], interpolation=cv2.INTER_LINEAR)
     kernel = np.ones((3, 3), np.uint8)
     smap_eroded = cv2.erode(smap_resized, kernel=kernel)
     smap = np.repeat(np.expand_dims(smap_eroded, axis=0)[:, :, :, np.newaxis],

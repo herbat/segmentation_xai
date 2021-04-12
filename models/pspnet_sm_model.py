@@ -17,8 +17,8 @@ class PSPNetModel(keras.Model):
                  input_shape: tuple,
                  backbone: str = 'resnext101'):
         super().__init__()
-
-        self.model = sm.PSPNet(backbone, classes=classes, activation='softmax', input_shape=input_shape)
+        self.in_shape = input_shape
+        self.model = sm.PSPNet(backbone, classes=classes, input_shape=input_shape, encoder_weights='imagenet')
 
     def __call__(self, x: np.ndarray, *args, **kwargs):
         return self.model(x)
