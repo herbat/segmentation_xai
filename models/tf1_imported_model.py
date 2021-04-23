@@ -37,6 +37,7 @@ class ImportedTF1Graph(tf.Module):
         return out
 
     def predict_gen(self, x: np.ndarray):
+        print("Inference")
         if x.ndim < 4:
             x = np.expand_dims(x, axis=0)
         out = self.model_function(tf.constant((x * 255).astype('uint8')))[0]

@@ -41,17 +41,16 @@ def cityscapes_generator(shape):
         yield tf.image.resize(x['image_left'], shape)/255, [39] * 100
 
 
-image_size_x = 64
-image_size_y = 64
-mask_res = (2, 2)
+image_size_x = 480
+image_size_y = 960
+mask_res = (4, 8)
 seed = 1
-dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
-# cityscapes_generator([image_size_x, image_size_y])
+dataset = cityscapes_generator([image_size_x, image_size_y])
 models = [
     # UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
     # PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
     # DeepLabV3Plus(64, 64, nclasses=11),
-    ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb', "ImageTensor:0", ["ResizeBilinear_1:0"], (64, 64))
+    ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb', "ImageTensor:0", ["ResizeBilinear_1:0"], (image_size_x, image_size_y))
 ]
 
 baselines = [
@@ -60,12 +59,12 @@ baselines = [
 ]
 
 explanations = [
-    # OcclusionSufficiency(baselines=baselines, threshold=1, top_k=4, name=" top-k"),
-    # OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-k"),
-    # OcclusionSufficiency(baselines=baselines, threshold=1),
+    OcclusionSufficiency(baselines=baselines, threshold=1, top_k=4, name=" top-k"),
+    OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-k"),
+    OcclusionSufficiency(baselines=baselines, threshold=1),
     OcclusionNecessity(baselines=baselines, threshold=1.3),
-    # IntegratedGradients(baselines=baselines),
-    # GridSaliency(batch_size=4, iterations=100, baselines=baselines, seed=seed)
+    IntegratedGradients(baselines=baselines),
+    GridSaliency(batch_size=4, iterations=100, baselines=baselines, seed=seed)
 ]
 
 evaluations = [
@@ -73,5 +72,4 @@ evaluations = [
     proportionality_sufficiency
 ]
 
-presenter = Presenter(plot=False, print_res=True, save_to_file=False)
 
