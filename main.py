@@ -3,6 +3,7 @@ import pickle
 
 import numpy as np
 from matplotlib import pyplot as plt
+import tensorflow as tf
 
 from baseline import Baseline
 from pipeline_config import models, dataset, explanations, evaluations, mask_res, seed
@@ -28,7 +29,10 @@ if __name__ == "__main__":
             for j in range(len(evaluations)):
                 eval_results[explanations[i].name].append([])
 
+        batch_count = 0
         for x_batch, y_batch in dataset:
+            print(f"Batch {batch_count} started.")
+            batch_count += 1
             for image, req_class in zip(x_batch, y_batch):
                 plt.imshow(image)
                 plt.title(req_class)
@@ -50,9 +54,11 @@ if __name__ == "__main__":
                                                                                    model=model,
                                                                                    req_class=req_class,
                                                                                    baseline=Baseline('value', 0)))
-
-        outfile = open(f"{model.name}_{datetime.now().strftime('%mm%dd%Hh%Mm')}.pkl")
+                break
+            break
+        outfile = open(f"{model.name}_{datetime.now().strftime('%mm%dd%Hh%Mm')}.pkl", "wb")
         pickle.dump(eval_results, outfile)
+        print(f"File saved successfully.")
 
 
 

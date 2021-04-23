@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -9,16 +10,25 @@ class Presenter:
         self.print_res = print_res
         self.save_to_file = save_to_file
 
-    def __call__(self, model_name: str, data: dict, *args, **kwargs):
-        print(model_name)
+    def __call__(self, data_fname: str, *args, **kwargs):
+        data = pickle.load(open(data_fname, "rb"))
         for n, d in data.items():
             if self.plot:
                 plt.plot(d)
                 plt.title(n)
                 plt.show()
             if self.print_res:
-                print(n, np.average(d))
-            if self.save_to_file:
-                f = open(f'{model_name}_savefile.txt', 'w')
-                f.write(str(n) + ": " + str(d))
+                if isinstance(d, int): print(n, d)
+                else:
+                    d = np.asarray(d)
+                    res = []
+                    for di in d:
+                        di = di[~np.isnan(di)]
+                        di = di[~np.isinf(di)]
+                        res.append(np.average(di))
+                    print(n, res)
 
+
+if __name__ == "__main__":
+    p = Presenter(False, True, False)
+    p(data_fname="./unet_model_04m16d14h19m.pkl")

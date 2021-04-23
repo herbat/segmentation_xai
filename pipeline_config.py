@@ -8,6 +8,7 @@ from baseline import Baseline
 from presenter import Presenter
 from models.unet_sm_model import UnetModel
 from models.pspnet_sm_model import PSPNetModel
+from models.tf1_imported_model import ImportedTF1Graph
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 from context_explanations.grid_saliency_explanation import GridSaliency
@@ -40,27 +41,31 @@ def cityscapes_generator(shape):
         yield tf.image.resize(x['image_left'], shape)/255, [39] * 100
 
 
-image_size_x = 48
-image_size_y = 96
-mask_res = (4, 8)
+image_size_x = 64
+image_size_y = 64
+mask_res = (2, 2)
 seed = 1
-dataset = cityscapes_generator([image_size_x, image_size_y])
+dataset = dataset_generator(gen_texture_mnist(biased_config, 'test'))
+# cityscapes_generator([image_size_x, image_size_y])
 models = [
-    # UnetModel(classes=11, input_shape=(64, 64, 3), load=True),
-    PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
-    # DeepLabV3Plus(64, 64, nclasses=11)
+    # UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
+    # PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
+    # DeepLabV3Plus(64, 64, nclasses=11),
+    ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb', "ImageTensor:0", ["ResizeBilinear_1:0"], (64, 64))
 ]
 
 baselines = [
-    Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5))),
-    Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)), seed=seed)
+    Baseline('value', 0, possible_values=list(np.linspace(0, 1, 1))),
+    # Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)), seed=seed)
 ]
 
 explanations = [
-    OcclusionSufficiency(baselines=baselines, threshold=1.3, tune_res=10),
-    OcclusionNecessity(baselines=baselines, threshold=1.3, tune_res=10),
-    IntegratedGradients(baselines=baselines),
-    GridSaliency(batch_size=4, iterations=100, baselines=baselines, seed=seed)
+    # OcclusionSufficiency(baselines=baselines, threshold=1, top_k=4, name=" top-k"),
+    # OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-k"),
+    # OcclusionSufficiency(baselines=baselines, threshold=1),
+    OcclusionNecessity(baselines=baselines, threshold=1.3),
+    # IntegratedGradients(baselines=baselines),
+    # GridSaliency(batch_size=4, iterations=100, baselines=baselines, seed=seed)
 ]
 
 evaluations = [

@@ -32,7 +32,7 @@ def proportionality_sufficiency(smap: np.ndarray,
     pert_im = perturb_im(image=image, smap=smap, bl_image=bl_image)
     cur_out = model.predict_gen(pert_im)
     conf_diff = confidence_diff(cur_out=cur_out, orig_out=orig_out, class_r=req_class)
-    return 1/(conf_diff * np.sum(smap))
+    return 1/(conf_diff * np.mean(smap))
 
 
 def proportionality_necessity(smap: np.ndarray,
@@ -60,4 +60,4 @@ def proportionality_necessity(smap: np.ndarray,
     pert_im = perturb_im(image=image, smap=smap_inv, bl_image=bl_image)
     cur_out = model.predict_gen(pert_im)
     conf_diff = confidence_diff(cur_out=cur_out, orig_out=orig_out, class_r=req_class)
-    return conf_diff / np.sum(smap)
+    return conf_diff / np.mean(smap)
