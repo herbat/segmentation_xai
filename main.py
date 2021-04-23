@@ -7,6 +7,7 @@ import tensorflow as tf
 
 from baseline import Baseline
 from pipeline_config import models, dataset, explanations, evaluations, mask_res, seed
+from utils import zero_nonmax
 
 colors_mnist = np.asarray([[250, 227, 227],
                            [247, 212, 188],
@@ -34,19 +35,21 @@ if __name__ == "__main__":
             print(f"Batch {batch_count} started.")
             batch_count += 1
             for image, req_class in zip(x_batch, y_batch):
-                plt.imshow(image)
-                plt.title(req_class)
-                plt.show()
+                # plt.imshow(image)
+                # plt.title(req_class)
+                # plt.show()
                 image = np.expand_dims(image, axis=0)
+                zerod_out = zero_nonmax(model.predict_gen(image))
+                if np.sum(zerod_out[:, :, 39]) == 0: continue
                 for explanation_method in explanations:
                     explanation = explanation_method.get_explanation(image=image,
                                                                      model=model,
                                                                      mask_res=mask_res,
                                                                      req_class=req_class)
 
-                    plt.imshow(explanation, vmin=0, vmax=1)
-                    plt.title(explanation_method.name)
-                    plt.show()
+                    # plt.imshow(explanation, vmin=0, vmax=1)
+                    # plt.title(explanation_method.name)
+                    # plt.show()
 
                     for i, evaluation in enumerate(evaluations):
                         eval_results[explanation_method.name][i].append(evaluation(smap=explanation,

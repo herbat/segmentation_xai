@@ -30,8 +30,8 @@ class IntegratedGradients(Explanation):
         bl_image = baseline.get_default_baseline(image=image, req_class=req_class, orig_out=model.predict_gen(image))
 
         orig_out = model.predict_gen(image)
-        orig_im_tf = tf.cast(tf.constant(image * 255), 'uint8')
-        bl_im_tf = tf.cast(tf.constant(bl_image * 255), 'uint8')
+        orig_im_tf = tf.cast(tf.constant(image * 255), 'float32')
+        bl_im_tf = tf.cast(tf.constant(bl_image * 255), 'float32')
 
         with tf.GradientTape(persistent=True) as tape:
             tape.watch(smap)
@@ -40,7 +40,7 @@ class IntegratedGradients(Explanation):
             loss = confidence_diff_tf(orig_out=orig_out,
                                       model=model,
                                       req_class=req_class,
-                                      pert_im=tf.cast(pert_im, 'uint8'),
+                                      pert_im=tf.cast(pert_im, 'float32'),
                                       im=orig_im_tf)
 
         grad = tape.gradient(loss, smap).numpy().sum(axis=-1)/3
