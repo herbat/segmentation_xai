@@ -16,6 +16,7 @@ def wrap_frozen_graph(graph_def: tf.compat.v1.GraphDef,
         tf.compat.v1.import_graph_def(graph_def, name="")
     wrapped_import = tf.compat.v1.wrap_function(_imports_graph_def, [])
     import_graph = wrapped_import.graph
+    # [print("" + str(x.values()) + "\n") for x in import_graph.get_operations()]
     return wrapped_import.prune(
         tf.nest.map_structure(import_graph.as_graph_element, inputs),
         tf.nest.map_structure(import_graph.as_graph_element, outputs))
@@ -37,10 +38,10 @@ class ImportedTF1Graph(tf.Module):
         return out
 
     def predict_gen(self, x: np.ndarray):
-        print("Inference")
+        # print("Inference")
         if x.ndim < 4:
             x = np.expand_dims(x, axis=0)
         out = self.model_function(tf.constant((x * 255).astype('uint8')))[0]
-        out = tf.image.resize(out, self.in_shape)
+        out = tf.image.resize(tf.expand_dims(out, axis=-1) if len(out.shape) < 4 else out, self.in_shape)
         return out.numpy()
 

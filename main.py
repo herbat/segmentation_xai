@@ -40,7 +40,11 @@ if __name__ == "__main__":
                 # plt.show()
                 image = np.expand_dims(image, axis=0)
                 zerod_out = zero_nonmax(model.predict_gen(image))
-                if np.sum(zerod_out[:, :, 39]) == 0: continue
+                # plt.imshow(model.predict_gen(image).squeeze())
+                # plt.show()
+                if np.sum(zerod_out[:, :, 11]) == 0:
+                    print("No person on the image, skipping...")
+                    continue
                 for explanation_method in explanations:
                     explanation = explanation_method.get_explanation(image=image,
                                                                      model=model,
