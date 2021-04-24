@@ -39,11 +39,14 @@ if __name__ == "__main__":
                 # plt.title(req_class)
                 # plt.show()
                 image = np.expand_dims(image, axis=0)
-                zerod_out = zero_nonmax(model.predict_gen(image))
+                mout = model.predict_gen(image)
+                zerod_out = zero_nonmax(mout)
                 # plt.imshow(model.predict_gen(image).squeeze())
                 # plt.show()
-                if np.sum(zerod_out[:, :, 11]) == 0:
-                    print("No person on the image, skipping...")
+                if np.sum(zerod_out[:, :, 1]) == 0:
+                    print(mout.shape, zerod_out.shape, mout.max(), image.max())
+                    print([np.sum(zerod_out[:, :, i]) for i in range(19)])
+                    print("No road on the image, skipping...")
                     continue
                 for explanation_method in explanations:
                     explanation = explanation_method.get_explanation(image=image,
@@ -61,8 +64,8 @@ if __name__ == "__main__":
                                                                                    model=model,
                                                                                    req_class=req_class,
                                                                                    baseline=Baseline('value', 0)))
-                break
-            break
+                
+            if batch_count > 100: break
         outfile = open(f"{model.name}_{datetime.now().strftime('%mm%dd%Hh%Mm')}.pkl", "wb")
         pickle.dump(eval_results, outfile)
         print(f"File saved successfully.")

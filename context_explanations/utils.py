@@ -57,8 +57,8 @@ def choose_random_n(a: np.ndarray, n: int, seed: Optional[int]) -> np.ndarray:
 
 
 def perturb_im_tf(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
-
-    smap_resized = tf.keras.layers.UpSampling2D(size=(16, 16), interpolation='bilinear')(smap)
+    print(smap.dtype, image.dtype)
+    smap_resized = tf.keras.layers.UpSampling2D(size=(int(image.shape[1]/smap.shape[1]), int(image.shape[2]/smap.shape[2])), interpolation='bilinear')(smap)
     smap_eroded = -tf.nn.max_pool2d(-smap_resized, ksize=(3, 3), strides=1, padding='SAME')
     result = image * smap_eroded + bl_image * (1 - smap_eroded)
     return result

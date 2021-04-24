@@ -34,7 +34,7 @@ class ImportedTF1Graph(tf.Module):
 
     def __call__(self, x: tf.Tensor):
         out = self.model_function(x)[0]
-        out = tf.image.resize(out, self.in_shape)
+        out = tf.image.resize(tf.expand_dims(out, axis=-1) if len(out.shape) < 4 else out, self.in_shape)
         return out
 
     def predict_gen(self, x: np.ndarray):
