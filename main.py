@@ -35,18 +35,8 @@ if __name__ == "__main__":
             print(f"Batch {batch_count} started.")
             batch_count += 1
             for image, req_class in zip(x_batch, y_batch):
-                # plt.imshow(image)
-                # plt.title(req_class)
-                # plt.show()
-                image = np.expand_dims(image, axis=0)
-                mout = model.predict_gen(image)
-                zerod_out = zero_nonmax(mout)
-                # plt.imshow(model.predict_gen(image).squeeze())
-                # plt.show()
-                if np.sum(zerod_out[:, :, 1]) == 0:
-                    print(mout.shape, zerod_out.shape, mout.max(), image.max())
-                    print([np.sum(zerod_out[:, :, i]) for i in range(19)])
-                    print("No road on the image, skipping...")
+                if req_class == -1:
+                    print("No object of interest on the image, skipping...")
                     continue
                 for explanation_method in explanations:
                     explanation = explanation_method.get_explanation(image=image,

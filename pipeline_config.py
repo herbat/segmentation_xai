@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import Tuple, Type, Optional
 
 import numpy as np
@@ -35,22 +36,29 @@ def dataset_generator(gen) -> Tuple[np.ndarray, np.ndarray]:
 def cityscapes_generator(shape):
     ds = tfds.load("cityscapes")['train']
 
-    ds = ds.batch(100)
+    ds = ds.batch(1)
+    
+    classes_to_check = [24, 25, 26, 27, 28, 31, 32, 33]
 
     for x in tfds.as_numpy(ds):
-        yield tf.image.resize(x['image_left'], shape)/255, [39] * 100
+        cl, cnt = np.unique(x["segmentation_label"], return_counts=True)
+        sums = dict((c, n) for c, n  in zip(cl, cnt) if c in classes_to_check)
+        if len(sums.keys()) == 0:
+            req_index = -1
+        else:
+            req_index = list(range(11, 19))[classes_to_check.index(max(sums, key=sums.get))]
+        yield tf.image.resize(x['image_left'], shape) / 255, [req_index]
 
-
-image_size_x = 480
-image_size_y = 960
+image_size_x = 512
+image_size_y = 1024
 mask_res = (4, 8)
-seed = 1
+seed = 20
 dataset = cityscapes_generator([image_size_x, image_size_y])
 models = [
     # UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
     # PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
     # DeepLabV3Plus(64, 64, nclasses=11),
-    ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb', "ImageTensor:0", ["ResizeBilinear_1:0"], (image_size_x, image_size_y))
+    ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb', "ImageTensor:0", ["ResizeBilinear_3:0"], (image_size_x, image_size_y))
 ]
 
 baselines = [
@@ -59,17 +67,20 @@ baselines = [
 ]
 
 explanations = [
-    OcclusionSufficiency(baselines=baselines, threshold=1, top_k=4, name=" top-k"),
-    OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-k"),
+    OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=32, name=" full"),
+    OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=32, name=" full"),
+    OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=4, name=" top-4"),
+    OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-4"),
     OcclusionSufficiency(baselines=baselines, threshold=1),
     OcclusionNecessity(baselines=baselines, threshold=1.3),
-    IntegratedGradients(baselines=baselines),
-    GridSaliency(batch_size=4, iterations=100, baselines=baselines, seed=seed)
+    # IntegratedGradients(baselines=baselines),
+    
+    # GridSaliency(batch_size=1, iterations=100, baselines=baselines, seed=seed)
 ]
 
 evaluations = [
     proportionality_necessity,
     proportionality_sufficiency
 ]
-
+ 
 
