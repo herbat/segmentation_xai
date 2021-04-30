@@ -10,14 +10,12 @@ from context_explanations.utils import perturb_im, confidence_diff, try_baseline
 class OcclusionSufficiency(Explanation):
 
     def __init__(self,
-                 baselines: List[Baseline],
                  threshold: float,
                  name: Optional[str] = None,
                  top_k: Optional[int] = None,
                  tune_res: Optional[int] = None,
                  upsample_factor: Optional[int] = None):
 
-        self.baselines = baselines
         self.name = "Occlusion Sufficiency" + (name if name else "")
         self.threshold = threshold
         self.top_k = top_k
@@ -28,24 +26,26 @@ class OcclusionSufficiency(Explanation):
                         image: np.ndarray,
                         model,
                         mask_res: tuple,
-                        req_class: int) -> np.ndarray:
+                        req_class: int,
+                        baseline: Baseline) -> np.ndarray:
         """
 
         :param image:
         :param model:
         :param mask_res:
         :param req_class:
+        :param baseline:
         :return:
         """
 
         smap = np.zeros(mask_res)
-        conf_diffs, best_baseline = _get_conf_diffs(smap=smap,
-                                                    model=model,
-                                                    image=image,
-                                                    req_class=req_class,
-                                                    baselines=self.baselines,
-                                                    indices=np.ndindex(smap.shape),
-                                                    values=[1] * len(smap.flatten()))
+        conf_diffs = _get_conf_diffs(smap=smap,
+                                     model=model,
+                                     image=image,
+                                     req_class=req_class,
+                                     baseline=baseline,
+                                     indices=np.ndindex(smap.shape),
+                                     values=[1] * len(smap.flatten()))
 
         # print(req_class, conf_diffs.max() / np.median(conf_diffs))
         if np.median(conf_diffs) / conf_diffs.min()  < self.threshold:
@@ -57,13 +57,13 @@ class OcclusionSufficiency(Explanation):
 
         if self.tune_res:
             tune_values = np.linspace(0.5, 1, self.tune_res)
-            tuned_diffs, _ = _get_conf_diffs(smap=smap,
-                                             model=model,
-                                             image=image,
-                                             baselines=[best_baseline],
-                                             req_class=req_class,
-                                             indices=[best_idx] * len(tune_values),
-                                             values=tune_values)
+            tuned_diffs = _get_conf_diffs(smap=smap,
+                                          model=model,
+                                          image=image,
+                                          baseline=baseline,
+                                          req_class=req_class,
+                                          indices=[best_idx] * len(tune_values),
+                                          values=tune_values)
             losses = tuned_diffs * tune_values
             tuned_best = tune_values[np.argmin(losses)]
 
@@ -82,7 +82,7 @@ class OcclusionSufficiency(Explanation):
                                        model=model,
                                        image=image,
                                        req_class=req_class,
-                                       baselines=[best_baseline],
+                                       baseline=baseline,
                                        reverse=True)
         return smap
 
@@ -90,13 +90,11 @@ class OcclusionSufficiency(Explanation):
 class OcclusionNecessity(Explanation):
 
     def __init__(self,
-                 baselines: List[Baseline],
                  threshold: float,
                  name: Optional[str] = None,
                  top_k: Optional[int] = None,
                  tune_res: Optional[int] = None,
                  upsample_factor: Optional[int] = None):
-        self.baselines = baselines
         self.name = "Occlusion Necessity" + (name if name else "")
         self.threshold = threshold
         self.top_k = top_k
@@ -107,24 +105,26 @@ class OcclusionNecessity(Explanation):
                         model,
                         image: np.ndarray,
                         mask_res: tuple,
-                        req_class: int) -> np.ndarray:
+                        req_class: int,
+                        baseline: Baseline) -> np.ndarray:
         """
 
         :param image:
         :param model:
         :param mask_res:
         :param req_class:
+        :param baseline:
         :return:
         """
 
         smap = np.ones(mask_res)
-        conf_diffs, best_baseline = _get_conf_diffs(smap=smap,
-                                                    model=model,
-                                                    image=image,
-                                                    req_class=req_class,
-                                                    baselines=self.baselines,
-                                                    indices=np.ndindex(smap.shape),
-                                                    values=[0] * len(smap.flatten()))
+        conf_diffs = _get_conf_diffs(smap=smap,
+                                     model=model,
+                                     image=image,
+                                     req_class=req_class,
+                                     baseline=baseline,
+                                     indices=np.ndindex(smap.shape),
+                                     values=[0] * len(smap.flatten()))
 
         # print(req_class, conf_diffs.max() / np.median(conf_diffs))
         if conf_diffs.max() / np.median(conf_diffs) < self.threshold:
@@ -138,13 +138,13 @@ class OcclusionNecessity(Explanation):
         if self.tune_res:
             smap = np.ones_like(smap) - smap
             tune_values = np.linspace(0, 0.5, self.tune_res)
-            tuned_diffs, _ = _get_conf_diffs(smap=smap,
-                                             model=model,
-                                             image=image,
-                                             req_class=req_class,
-                                             baselines=[best_baseline],
-                                             indices=[best_idx] * len(tune_values),
-                                             values=tune_values)
+            tuned_diffs = _get_conf_diffs(smap=smap,
+                                          model=model,
+                                          image=image,
+                                          req_class=req_class,
+                                          baseline=best_baseline,
+                                          indices=[best_idx] * len(tune_values),
+                                          values=tune_values)
             losses = tuned_diffs / (np.ones_like(tune_values) - tune_values)
             tuned_best = tune_values[np.argmax(losses)]
             smap = np.zeros(mask_res)
@@ -161,7 +161,7 @@ class OcclusionNecessity(Explanation):
                                        model=model,
                                        image=image,
                                        req_class=req_class,
-                                       baselines=[best_baseline],
+                                       baseline=baseline,
                                        reverse=True)
 
         return smap
@@ -171,21 +171,11 @@ def _get_conf_diffs(smap: np.ndarray,
                     model,
                     image: np.ndarray,
                     req_class: int,
-                    baselines: List[Baseline],
+                    baseline: Baseline,
                     indices: Iterable,
-                    values: Iterable) -> Tuple[np.ndarray, Baseline]:
+                    values: Iterable) -> np.ndarray:
 
     orig_out = model.predict_gen(image)
-
-    if len(baselines) > 1:
-        baseline = try_baselines(mask_res=smap.shape,
-                                 model=model,
-                                 baselines=baselines,
-                                 image=image,
-                                 orig_out=orig_out,
-                                 req_class=req_class)
-    else:
-        baseline = baselines[0]
 
     bl_image = baseline.get_default_baseline(image=image, req_class=req_class, orig_out=orig_out)
 
@@ -200,7 +190,7 @@ def _get_conf_diffs(smap: np.ndarray,
         smap[i] = tmp
 
     conf_diffs = np.stack(conf_diffs)
-    return conf_diffs, baseline
+    return conf_diffs
 
 
 def increase_resolution(smap,
@@ -208,7 +198,7 @@ def increase_resolution(smap,
                         model,
                         image: np.ndarray,
                         req_class: int,
-                        baselines: List[Baseline],
+                        baseline: Baseline,
                         reverse: bool):
     new_resolution = [x * factor for x in smap.shape]
     new_smap = np.zeros(new_resolution)
@@ -219,13 +209,13 @@ def increase_resolution(smap,
 
         new_idxs = [(old_idx[0]*factor+nidx[0], old_idx[1]*factor+nidx[1]) for nidx in np.ndindex((factor, factor))]
 
-        conf_diffs, baseline = _get_conf_diffs(np.ones_like(new_smap),
-                                               model=model,
-                                               image=image,
-                                               req_class=req_class,
-                                               baselines=baselines,
-                                               values=[val] * len(new_idxs),
-                                               indices=new_idxs)
+        conf_diffs = _get_conf_diffs(np.ones_like(new_smap),
+                                     model=model,
+                                     image=image,
+                                     req_class=req_class,
+                                     baseline=baseline,
+                                     values=[val] * len(new_idxs),
+                                     indices=new_idxs)
 
         best_diff = (conf_diffs.argmax() if reverse else conf_diffs.argmin())
         new_smap[new_idxs[best_diff]] = 1

@@ -11,7 +11,6 @@ from context_explanations.utils import try_baselines, loss_fn
 class GridSaliency(Explanation):
 
     def __init__(self,
-                 baselines: List[Baseline],
                  iterations: int = 100,
                  lm: float = 0.02,
                  batch_size: int = 5,
@@ -20,7 +19,6 @@ class GridSaliency(Explanation):
                  seed: Optional[int] = None):
 
         self.optimizer = MySGD
-        self.baselines = baselines
         self.iterations = iterations
         self.lm = lm
         self.batch_size = batch_size
@@ -33,16 +31,10 @@ class GridSaliency(Explanation):
                         image: np.ndarray,
                         model,
                         mask_res: tuple,
-                        req_class: int):
+                        req_class: int,
+                        baseline: Baseline):
 
         orig_out = model.predict_gen(image)
-
-        baseline = try_baselines(mask_res=mask_res,
-                                 baselines=self.baselines,
-                                 image=image,
-                                 model=model,
-                                 orig_out=orig_out,
-                                 req_class=req_class)
 
         bl_image = baseline.get_default_baseline(image=image, orig_out=orig_out, req_class=req_class)
 

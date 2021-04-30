@@ -6,8 +6,9 @@ from matplotlib import pyplot as plt
 import tensorflow as tf
 
 from baseline import Baseline
-from pipeline_config import models, dataset, explanations, evaluations, mask_res, seed
+from pipeline_config import models, dataset, explanations, evaluations, mask_res, seed, baselines
 from utils import zero_nonmax
+from context_explanations.utils import try_baselines
 
 colors_mnist = np.asarray([[250, 227, 227],
                            [247, 212, 188],
@@ -36,8 +37,9 @@ if __name__ == "__main__":
             batch_count += 1
             for image, req_class in zip(x_batch, y_batch):
                 image = np.expand_dims(image, axis=0)
+                orig_out = model.predict_gen(image)
                 if len(baselines) > 1:
-                    baseline = try_baselines(mask_res=smap.shape,
+                    baseline = try_baselines(mask_res=mask_res,
                                              model=model,
                                              baselines=baselines,
                                              image=image,

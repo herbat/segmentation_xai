@@ -49,8 +49,9 @@ def cityscapes_generator(shape):
             req_index = list(range(11, 19))[classes_to_check.index(max(sums, key=sums.get))]
         yield tf.image.resize(x['image_left'], shape).numpy() / 255, [req_index]
 
-image_size_x = 512
-image_size_y = 1024
+
+image_size_x = 16
+image_size_y = 32
 mask_res = (4, 8)
 seed = 20
 dataset = cityscapes_generator([image_size_x, image_size_y])
@@ -70,12 +71,12 @@ explanations = [
     # OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=32, name=" full"),
     # OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=32, name=" full"),
     # OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=4, name=" top-4"),
-    OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-4"),
-    OcclusionSufficiency(baselines=baselines, threshold=1),
+    OcclusionNecessity(threshold=1.3, top_k=4, name=" top-4"),
+    OcclusionSufficiency(threshold=1),
     # OcclusionNecessity(baselines=baselines, threshold=1.3),
     # IntegratedGradients(baselines=baselines),
     
-    GridSaliency(batch_size=1, iterations=100, baselines=baselines, seed=seed)
+    GridSaliency(batch_size=1, iterations=100, seed=seed)
 ]
 
 evaluations = [
