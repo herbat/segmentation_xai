@@ -36,6 +36,15 @@ if __name__ == "__main__":
             batch_count += 1
             for image, req_class in zip(x_batch, y_batch):
                 image = np.expand_dims(image, axis=0)
+                if len(baselines) > 1:
+                    baseline = try_baselines(mask_res=smap.shape,
+                                             model=model,
+                                             baselines=baselines,
+                                             image=image,
+                                             orig_out=orig_out,
+                                             req_class=req_class)
+                else:
+                    baseline = baselines[0]
                 if req_class == -1:
                     print("No object of interest on the image, skipping...")
                     continue

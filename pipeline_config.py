@@ -62,20 +62,20 @@ models = [
 ]
 
 baselines = [
-    Baseline('value', 0, possible_values=list(np.linspace(0, 1, 1))),
-    # Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)), seed=seed)
+    Baseline('value', 0, possible_values=list(np.linspace(0, 1, 5))),
+    Baseline('gaussian', 0.1, possible_values=list(np.linspace(0.1, .3, 5)), seed=seed)
 ]
 
 explanations = [
-    OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=32, name=" full"),
-    OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=32, name=" full"),
-    OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=4, name=" top-4"),
+    # OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=32, name=" full"),
+    # OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=32, name=" full"),
+    # OcclusionSufficiency(baselines=baselines, threshold=1.2, top_k=4, name=" top-4"),
     OcclusionNecessity(baselines=baselines, threshold=1.3, top_k=4, name=" top-4"),
     OcclusionSufficiency(baselines=baselines, threshold=1),
-    OcclusionNecessity(baselines=baselines, threshold=1.3),
+    # OcclusionNecessity(baselines=baselines, threshold=1.3),
     # IntegratedGradients(baselines=baselines),
     
-    # GridSaliency(batch_size=1, iterations=100, baselines=baselines, seed=seed)
+    GridSaliency(batch_size=1, iterations=100, baselines=baselines, seed=seed)
 ]
 
 evaluations = [
