@@ -47,7 +47,7 @@ def cityscapes_generator(shape):
             req_index = -1
         else:
             req_index = list(range(11, 19))[classes_to_check.index(max(sums, key=sums.get))]
-        yield tf.image.resize(x['image_left'], shape) / 255, [req_index]
+        yield tf.image.resize(x['image_left'], shape).numpy() / 255, [req_index]
 
 image_size_x = 512
 image_size_y = 1024

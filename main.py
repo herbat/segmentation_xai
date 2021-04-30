@@ -32,9 +32,10 @@ if __name__ == "__main__":
 
         batch_count = 0
         for x_batch, y_batch in dataset:
-            print(f"Batch {batch_count} started.")
+            print(f"{datetime.now().strftime('%m/%d-%H:%M')}: Batch {batch_count} started.")
             batch_count += 1
             for image, req_class in zip(x_batch, y_batch):
+                image = np.expand_dims(image, axis=0)
                 if req_class == -1:
                     print("No object of interest on the image, skipping...")
                     continue
@@ -55,7 +56,7 @@ if __name__ == "__main__":
                                                                                    req_class=req_class,
                                                                                    baseline=Baseline('value', 0)))
                 
-            if batch_count > 100: break
+            if batch_count > 200: break
         outfile = open(f"{model.name}_{datetime.now().strftime('%mm%dd%Hh%Mm')}.pkl", "wb")
         pickle.dump(eval_results, outfile)
         print(f"File saved successfully.")
