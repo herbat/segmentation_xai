@@ -37,7 +37,7 @@ def cityscapes_generator(shape):
     ds = tfds.load("cityscapes")['train']
 
     ds = ds.batch(1)
-    
+
     classes_to_check = [24, 25, 26, 27, 28, 31, 32, 33]
 
     for x in tfds.as_numpy(ds):
@@ -50,11 +50,14 @@ def cityscapes_generator(shape):
         yield tf.image.resize(x['image_left'], shape).numpy() / 255, [req_index]
 
 
+
+
 image_size_x = 16
 image_size_y = 32
-mask_res = (4, 8)
-seed = 20
+mask_res = (2, 4)
+seed = 1
 dataset = cityscapes_generator([image_size_x, image_size_y])
+# dataset = dataset_generator(gen_texture_mnist(biased_config, split='test'))
 models = [
     # UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
     # PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
@@ -85,3 +88,5 @@ evaluations = [
 ]
  
 
+if __name__ == "__main__":
+    next(dataset)

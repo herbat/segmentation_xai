@@ -12,6 +12,10 @@ class Presenter:
 
     def __call__(self, data_fname: str, *args, **kwargs):
         data = pickle.load(open(data_fname, "rb"))
+
+        suf = []
+        nec = []
+        names = ["Oc-Suf full", "Oc-nec full", "Oc-Suf top 4", "Oc-nec top 4", "Oc-suf", "Oc-nec"]
         for n, d in data.items():
             if self.plot:
                 plt.plot(d)
@@ -25,10 +29,22 @@ class Presenter:
                     for di in d:
                         di = di[~np.isnan(di)]
                         di = di[~np.isinf(di)]
-                        res.append(np.average(di))
-                    print(n, res)
+                        res.append(di)
+                    nec.append(res[0])
+                    suf.append(res[1])
+                    # names.append(n)
+        fig = plt.figure(figsize=(6, 8))
+        ax = fig.add_subplot(211)
+        ax.boxplot(suf, showfliers=False)
+        ax.title.set_text("Sufficiency")
+        ax.set_xticklabels(names)
+        ax2 = fig.add_subplot(212)
+        ax2.boxplot(nec, showfliers=False)
+        ax2.title.set_text("Necessity")
+        ax2.set_xticklabels(names)
+        plt.show()
 
 
 if __name__ == "__main__":
     p = Presenter(False, True, False)
-    p(data_fname="./unet_model_04m16d14h19m.pkl")
+    p(data_fname="./deeplab_apr27_noGS_200_images.pkl")
