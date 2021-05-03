@@ -28,7 +28,7 @@ if __name__ == "__main__":
         eval_results = {'seed': seed}
         for i in range(len(explanations)):
             eval_results[explanations[i].name] = []
-            for j in range(len(evaluations)):
+            for j in range(len(evaluations)+1):
                 eval_results[explanations[i].name].append([])
 
         batch_count = 0
@@ -54,14 +54,16 @@ if __name__ == "__main__":
                     explanation = explanation_method.get_explanation(image=image,
                                                                      model=model,
                                                                      mask_res=mask_res,
-                                                                     req_class=req_class)
+                                                                     req_class=req_class,
+                                                                     baseline=baseline)
 
                     # plt.imshow(explanation, vmin=0, vmax=1)
                     # plt.title(explanation_method.name)
                     # plt.show()
+                    eval_results[explanation_method.name][0].append(explanation)
 
                     for i, evaluation in enumerate(evaluations):
-                        eval_results[explanation_method.name][i].append(evaluation(smap=explanation,
+                        eval_results[explanation_method.name][i+1].append(evaluation(smap=explanation,
                                                                                    image=image,
                                                                                    model=model,
                                                                                    req_class=req_class,
