@@ -16,10 +16,10 @@ def perturb_im(image: np.ndarray,
     smap_resized = cv2.resize(smap, image.shape[1:-1][::-1], interpolation=cv2.INTER_LINEAR)
     kernel = np.ones((3, 3), np.uint8)
     smap_eroded = cv2.erode(smap_resized, kernel=kernel)
+    # repeat along channel dimension
     smap = np.repeat(np.expand_dims(smap_eroded, axis=0)[:, :, :, np.newaxis],
                      3, 3).astype(np.float64) / 255
 
-    # apply smap and add the request area(we don't want that area to be affected)
     result = image * smap + bl_image * (1 - smap)
 
     return result
@@ -38,17 +38,20 @@ def loss_fn(lm: float,
 
 def confidence_diff(cur_out: np.ndarray,
                     orig_out: np.ndarray,
-                    class_r: int):
+                    class_r: int) -> float:
+    # get the request mask based on the original output of the network
     zerod_out = zero_nonmax(orig_out)
     req_area_size = np.count_nonzero(np.round(zerod_out))
     req_mask = np.round(zerod_out[:, :, class_r]).astype(int)
+    # calculate the confidence difference in the request area
     diff_area = (zerod_out[:, :, class_r] - cur_out[0, :, :, class_r]) * req_mask
     diff_area[diff_area < 0] = 0
     return np.sum(diff_area) / req_area_size
 
 
 def choose_random_n(a: np.ndarray, n: int, seed: Optional[int]) -> np.ndarray:
-    if seed is not None: np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
     sample = np.random.uniform(a)
     flat = sample.flatten()
     flat.sort()
@@ -56,7 +59,7 @@ def choose_random_n(a: np.ndarray, n: int, seed: Optional[int]) -> np.ndarray:
     return sample < thr
 
 
-def perturb_im_tf(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
+def perturb_im_tf(smap: tf.Variable, image: tf.constant, bl_image: tf.constant) -> tf.Tensor:
     print(smap.dtype, image.dtype)
     smap_resized = tf.keras.layers.UpSampling2D(size=(int(image.shape[1]/smap.shape[1]), int(image.shape[2]/smap.shape[2])), interpolation='bilinear')(smap)
     smap_eroded = -tf.nn.max_pool2d(-smap_resized, ksize=(3, 3), strides=1, padding='SAME')
@@ -65,11 +68,13 @@ def perturb_im_tf(smap: tf.Variable, image: tf.constant, bl_image: tf.constant):
 
 
 def confidence_diff_tf(orig_out: np.ndarray, req_class: int, model, pert_im: tf.Variable, im: tf.constant) -> float:
+    # get the request mask based on the original output of the network
     zerod_out = zero_nonmax(orig_out)
     req_area_size = np.count_nonzero(np.round(zerod_out))
     mask_np = np.zeros_like(orig_out)
     mask_np[0, :, :, req_class] = np.round(zerod_out[:, :, req_class]).astype(int)
     mask = tf.constant(mask_np)
+    # calculate the confidence difference in the request area
     diff = tf.reduce_sum(tf.keras.activations.relu(model(im) - model(pert_im)) * mask)
     return diff / req_area_size
 
@@ -80,7 +85,18 @@ def try_baselines(mask_res: Tuple[int, int],
                   model,
                   orig_out: np.ndarray,
                   req_class: int) -> Baseline:
+    """
+    Try several baselines to find the one causing the largest confidence loss.
 
+    :param mask_res: mask resolution
+    :param baselines: baselines to try
+    :param image: image to feed to the model
+    :param model: model to analyze
+    :param orig_out: original output of the model (we accept this as an argument here
+        to avoid an extra inference run
+    :param req_class: requested class
+    :return: a Baseline object with the best parameters
+    """
     max_overall = 0
     best_baseline = None
 

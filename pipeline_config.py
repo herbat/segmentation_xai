@@ -1,15 +1,13 @@
 from collections import Counter
 from typing import Tuple, Type, Optional
 
+import pickle
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from baseline import Baseline
-from presenter import Presenter
-from models.unet_sm_model import UnetModel
-from models.pspnet_sm_model import PSPNetModel
-from models.tf1_imported_model import ImportedTF1Graph
+# from models.tf1_imported_model import ImportedTF1Graph
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 from context_explanations.grid_saliency_explanation import GridSaliency
@@ -42,27 +40,59 @@ def cityscapes_generator(shape):
 
     for x in tfds.as_numpy(ds):
         cl, cnt = np.unique(x["segmentation_label"], return_counts=True)
-        sums = dict((c, n) for c, n  in zip(cl, cnt) if c in classes_to_check)
+        sums = dict((c, n) for c, n in zip(cl, cnt) if c in classes_to_check)
         if len(sums.keys()) == 0:
             req_index = -1
         else:
-            req_index = list(range(11, 19))[classes_to_check.index(max(sums, key=sums.get))]
-        yield tf.image.resize(x['image_left'], shape).numpy() / 255, [req_index]
+            req_index = classes_to_check[classes_to_check.index(max(sums, key=sums.get))]
+        yield (
+            tf.image.resize(x['image_left'], shape).numpy() / 255,
+            [req_index],
+            tf.image.resize(x['segmentation_label'], shape).numpy()
+        )
 
 
+def pascalvoc_generator(shape, gt: bool = False):
+    images = pickle.load(open("data/voc2012_images_b1.pkl", "rb"))
+    labels = pickle.load(open("data/voc2012_labels_b1.pkl", "rb"))
+
+    for i in range(599):
+        if i == 300:
+            images = pickle.load(open("data/voc2012_images_b2.pkl", "rb"))
+            labels = pickle.load(open("data/voc2012_labels_b2.pkl", "rb"))
+        i = i if i < 300 else i - 300
+        im = images[i]
+        sm = labels[i]
+        cl, cnt = np.unique(sm, return_counts=True)
+        req_index = cl[np.argmax(cnt[1 if 0 in cl else 0:-1 if 255 in cl else len(cl)]) + 1]
+
+        yield (
+            tf.image.resize(im, shape).numpy() / 255,
+            [req_index],
+            tf.image.resize(np.expand_dims(sm, axis=-1), shape).numpy() if gt else None
+        )
 
 
-image_size_x = 16
-image_size_y = 32
-mask_res = (2, 4)
+image_size_x = 512
+image_size_y = 1024
+mask_res = (4, 8)
 seed = 1
-dataset = cityscapes_generator([image_size_x, image_size_y])
+dataset_pascal = pascalvoc_generator([image_size_x, image_size_y], gt=True)
+dataset_cityscapes = cityscapes_generator([image_size_x, image_size_y])
 # dataset = dataset_generator(gen_texture_mnist(biased_config, split='test'))
 models = [
     # UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
     # PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
     # DeepLabV3Plus(64, 64, nclasses=11),
-    ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb', "ImageTensor:0", ["ResizeBilinear_3:0"], (image_size_x, image_size_y))
+    # ImportedTF1Graph('deeplab_pascal_x65.pb',
+    #                  "ImageTensor:0",
+    #                  ["ResizeBilinear_3:0"],
+    #                  (image_size_x, image_size_y)),
+
+    # ImportedTF1Graph('deeplabfrozenmodel/deeblab_xc65.pb',
+    #                  "ImageTensor:0",
+    #                  ["ResizeBilinear_3:0"],
+    #                  (image_size_x, image_size_y))
 ]
 
 baselines = [
@@ -86,7 +116,3 @@ evaluations = [
     proportionality_necessity,
     proportionality_sufficiency
 ]
- 
-
-if __name__ == "__main__":
-    next(dataset)
