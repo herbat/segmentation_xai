@@ -8,6 +8,7 @@ import tensorflow_datasets as tfds
 
 from baseline import Baseline
 # from models.tf1_imported_model import ImportedTF1Graph
+from models.unet_sm_model import UnetModel
 from bias_dataset.mnist_generators_simple import gen_texture_mnist
 from bias_dataset.configs import biased_config, unbiased_config
 from context_explanations.grid_saliency_explanation import GridSaliency
@@ -16,7 +17,7 @@ from evaluations import proportionality_necessity, proportionality_sufficiency
 from context_explanations.occlusion_confidence import OcclusionSufficiency, OcclusionNecessity
 
 
-def dataset_generator(gen) -> Tuple[np.ndarray, np.ndarray]:
+def dataset_generator(gen, gt: bool = False):
     def get_y(batch_y):
         result = []
         for y in batch_y:
@@ -27,8 +28,8 @@ def dataset_generator(gen) -> Tuple[np.ndarray, np.ndarray]:
         return np.repeat(batch_x, 3, axis=-1)
 
     while True:
-        bx, by, _ = next(gen)
-        yield get_x(bx), get_y(by)
+        bx, by, m = next(gen)
+        yield (get_x(bx), get_y(by), m) if gt else (get_x(bx), get_y(by))
 
 
 def cityscapes_generator(shape):
@@ -79,9 +80,9 @@ mask_res = (4, 8)
 seed = 1
 dataset_pascal = pascalvoc_generator([image_size_x, image_size_y], gt=True)
 dataset_cityscapes = cityscapes_generator([image_size_x, image_size_y])
-# dataset = dataset_generator(gen_texture_mnist(biased_config, split='test'))
+dataset = dataset_generator(gen_texture_mnist(biased_config, split='test'), gt=True)
 models = [
-    # UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
+    UnetModel(classes=11, input_shape=(image_size_x, image_size_y, 3), load=True),
     # PSPNetModel(classes=66, input_shape=(image_size_x, image_size_y, 3)),
     # DeepLabV3Plus(64, 64, nclasses=11),
     # ImportedTF1Graph('deeplab_pascal_x65.pb',

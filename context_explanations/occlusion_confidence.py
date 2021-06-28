@@ -48,7 +48,7 @@ class OcclusionSufficiency(Explanation):
                                      values=[1] * len(smap.flatten()))
 
         # print(req_class, conf_diffs.max() / np.median(conf_diffs))
-        if np.median(conf_diffs) / conf_diffs.min()  < self.threshold:
+        if np.median(conf_diffs) / conf_diffs.min() < self.threshold:
             return smap
         min_diff_idx = int(np.argmin(conf_diffs))
         # print("suff:", conf_diffs.max())

@@ -1,6 +1,8 @@
+import math
 import pickle
 import numpy as np
 import tensorflow as tf
+from scipy.stats import entropy
 from matplotlib import pyplot as plt
 from baseline import Baseline
 from pipeline_config import dataset_cityscapes
@@ -16,17 +18,28 @@ def filter_nan_inf(a):
 def load_data(data: dict):
     suf = []
     nec = []
+    info = {}
 
     for n, d in data.items():
         if isinstance(d, int):
             print(n, d)
         else:
+            ic = information_content(d[0])
+            info[n] = [ic] if n not in info else info[n].append(ic)
             nec.append(np.asarray(d[1]))
             print(np.shape(d[1]), np.shape(d[2]))
             # print(d[1], d[2])
             suf.append(np.asarray(d[2]))
-
+    for i in info.items():
+        print(i[0], np.mean(i[1]))
     return np.stack(nec), np.stack(suf)
+
+
+def information_content(smap: np.ndarray) -> float:
+    bins = np.linspace(0, 1, 10)
+    digitized = np.digitize(smap, bins)
+    value, counts = np.unique(digitized, return_counts=True)
+    return entropy(counts, base=math.e)
 
 
 colors_n = ['tab:blue', 'tab:orange', 'tab:red', 'tab:green', 'tab:purple', 'tab:brown', 'tab:olive']
@@ -37,6 +50,7 @@ def plot_scatter_allmethods(ax, a, names, legend: bool, factor: int):
     for i in range(0, a.shape[0]):
         ax.scatter(a[i, :, 1]*factor, a[i, :, 0], s=50, marker="o", color=colors_n[i])
     for i in range(0, a.shape[0]):
+        print(names[i], np.average(a[i, :, 1]*48), np.average(a[i, :, 0]))
         ax.scatter(np.average(a[i, :, 1]*factor), np.average(a[i, :, 0]), s=200,
                    marker="x", color=colors_a[i])
     plt.xlabel("Sum of saliency values")
@@ -51,27 +65,29 @@ def plot_allmethods(data):
     fig = plt.figure(figsize=(12, 18))
     # gs = plt.GridSpec(1, 3, width_ratios=[2, 2, 1])
     ax0 = fig.add_subplot(2, 1, 1)
-    plot_scatter_allmethods(ax0, nec[:-1], names=['Sufficiency, k=48, average:',
+    print('necessity')
+    plot_scatter_allmethods(ax0, nec, names=['Sufficiency, k=48, average:',
                                                   'Necessity, k=48,   average:',
                                                   'Sufficiency, k=4,  average:',
                                                   'Necessity, k=4,    average:',
                                                   'Sufficiency, k=1,  average:',
-                                                  'Necessity, k=1,    average:'], legend=True, factor=48)
+                                                  'Necessity, k=1,    average:', 'gs'], legend=True, factor=48)
     ax1 = fig.add_subplot(2, 1, 2)
     # plt.title('Normal explanation shown on image', fontsize=16)
-    plot_scatter_allmethods(ax1, suf[:-1], names=['Sufficiency, k=48, average:',
+    print('necessity')
+    plot_scatter_allmethods(ax1, suf, names=['Sufficiency, k=48, average:',
                                                   'Necessity, k=48, average:',
                                                   'Sufficiency, k=4, average:',
                                                   'Necessity, k=4, average:',
                                                   'Sufficiency, k=1, average:',
-                                                  'Necessity, k=1, average:'], legend=True, factor=48)
+                                                  'Necessity, k=1, average:', 'gs'], legend=True, factor=48)
     plt.subplots_adjust(top=0.88, hspace=0.4, bottom=0.05)
     plt.show()
 
 
 def plot_scatter_comparison(ax, a, names, legend: bool):
     for i in range(0, a.shape[0]):
-        ax.scatter(a[i, :, 1]*32, a[i, :, 0], s=50, marker="o", color="lightblue")
+        ax.scatter(a[i, :, 1]*48, a[i, :, 0], s=50, marker="o", color="lightblue")
     for i in range(0, a.shape[0]):
         ax.scatter(np.average(a[i, :, 1]*32), np.average(a[i, :, 0]), s=200,
                    marker="o", color="red" if i == 0 else "orange")
@@ -228,11 +244,11 @@ def vis():
 
 
 if __name__ == "__main__":
-    show_context_baseline()
-    # data_dl1 = pickle.load(open("pickles/deeplab_may3_cs_200im_all.pkl", 'rb'))
+    # show_context_baseline()
+    data_dl1 = pickle.load(open("pickles/deeplab_may6_pascalvoc_600_all.pkl", 'rb'))
     # data_dl2 = pickle.load(open("pickles/imported_tf1_graph_05m21d11h01m.pkl", 'rb'))
     # # p = Presenter(False, True, False)
     # # p(data_fname="pickles/deeplab_may6_pascalvoc_600_all.pkl")
     # plot_image(data_dl1, 1)
-    # plot_allmethods(data_dl1)
+    plot_allmethods(data_dl1)
     # plot_many_examples(data_dl1)

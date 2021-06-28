@@ -10,12 +10,6 @@ biased_config = {
     'fix_test_set': True,
     'batch_size': 100,
     'bias': {
-        1: {
-            "source_1_id": "'1bbf4548.png",
-            "source_2_id": "'2fbd466c.png",
-            "source_1_bias": 0.0,
-            "source_2_bias": 1.0
-        },
         2: {
             "source_1_id": "'feeccd96.png",
             "source_2_id": "'f135d029.png",

@@ -175,7 +175,7 @@ class MySGD(Optimizer):
             choice = choose_random_n(smap, batch_size, seed=seed)
             smap[choice] += grad_map[choice] * learning_rate
 
-            smap[smap <= 0] = 0
+            smap[smap <= 0] = 0.2
             smap[smap > 1] = 1
 
             # get the perturbed image

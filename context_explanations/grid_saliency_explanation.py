@@ -58,7 +58,8 @@ class GridSaliency(Explanation):
                                        momentum=self.momentum,
                                        batch_size=self.batch_size,
                                        learning_rate=self.learning_rate,
-                                       seed=self.seed)
+                                       seed=self.seed,
+                                       lm=self.lm)
 
         if final_loss > base_loss:
             res = np.zeros(mask_res)
